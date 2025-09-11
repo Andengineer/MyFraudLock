@@ -1,9 +1,6 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Pantalla de Auditoría</title>
-</head>
-<body>
+{% extends "api/base.html" %}
+    {% block title %}Pantalla de Auditoría{% endblock %}
+{% block content %}
     <h1>Pantalla de Auditoría</h1>
 
     <h2>Auditoría individual</h2>
@@ -30,5 +27,4 @@
 
     <br>
     <a href="{% url 'dashboard' %}">Volver al Dashboard</a>
-</body>
-</html>
+{% endblock %}

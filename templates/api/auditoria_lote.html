@@ -1,9 +1,6 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Auditoría por Lote (CSV)</title>
-</head>
-<body>
+{% extends "api/base.html" %}
+{% block title %}Auditoría por Lote (CSV){% endblock %}
+{% block content %}
   <h1>Auditoría por Lote (CSV)</h1>
 
   {% if messages %}
@@ -52,5 +49,4 @@
   <a href="{% url 'auditoria_front' %}">Auditoría Individual</a> |
   <a href="{% url 'incidentes_listado' %}">Incidentes</a> |
   <a href="{% url 'dashboard' %}">Dashboard</a>
-</body>
-</html>
+{% endblock %}

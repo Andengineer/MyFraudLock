@@ -1,9 +1,6 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Detalle de Incidente</title>
-</head>
-<body>
+{% extends "api/base.html" %}
+    {% block title %}Detalle de Incidente{% endblock %}
+{% block content %}
     <h1>Detalle del Incidente #{{ incidente.id_incidente }}</h1>
 
     <h2>Información del incidente</h2>
@@ -42,7 +39,7 @@
 
     <br>
     <a href="{% url 'incidentes_listado' %}">Volver al listado</a>
-</body>
+{% endblock %}
 {% if messages %}
     <ul>
         {% for message in messages %}
@@ -50,4 +47,3 @@
         {% endfor %}
     </ul>
 {% endif %}
-</html>

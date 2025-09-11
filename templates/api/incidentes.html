@@ -1,9 +1,6 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Listado de Incidentes</title>
-</head>
-<body>
+{% extends "api/base.html" %}
+    {% block title %}Listado de Incidentes{% endblock %}
+{% block content %}
     <h1>Listado de Incidentes</h1>
 
     <table border="1">
@@ -30,7 +27,7 @@
         </tr>
         {% endfor %}
     </table>
-</body>
+{% endblock %}
 {% if messages %}
     <ul>
         {% for message in messages %}
@@ -38,4 +35,3 @@
         {% endfor %}
     </ul>
 {% endif %}
-</html>
