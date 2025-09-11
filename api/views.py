@@ -16,5 +16,6 @@ class TransaccionViewSet(viewsets.ModelViewSet):
     serializer_class = TransaccionSerializer
 
 class IncidenteViewSet(viewsets.ModelViewSet):
-    queryset = Incidente.objects.all()
+    queryset = Incidente.objects.all().order_by('-fecha')  # 👈 orden descendente
     serializer_class = IncidenteSerializer
+
