@@ -1,10 +1,12 @@
+import csv, io
 from django.shortcuts import render, get_object_or_404, redirect
+from django.views.decorators.csrf import csrf_exempt
 from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib import messages
 from rest_framework import filters,status, viewsets
-from rest_framework.decorators import action
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.decorators import action
 from .ml_utils import predict_fraud
 from .serializers import UsuarioSerializer, TransaccionSerializer, IncidenteSerializer
 from .models import Transaccion, Incidente, Usuario
@@ -124,3 +126,76 @@ def incidente_detalle_view(request, incidente_id):
             return redirect("incidentes_listado")
 
     return render(request, "api/incidente_detalle.html", {"incidente": incidente})
+
+@csrf_exempt
+def auditoria_view(request):
+    resultado = None
+
+    if request.method == "POST":
+        importe = request.POST.get("importe")
+        metodo_pago = request.POST.get("metodo_pago")
+        direccion_envio = request.POST.get("direccion_envio")
+
+        # Ejecutar predicción simulada
+        score, explicabilidad = predict_fraud({
+            "importe": importe,
+            "metodo_pago": metodo_pago,
+            "direccion_envio": direccion_envio
+        })
+
+        resultado = {
+            "score_riesgo": score,
+            "explicabilidad": explicabilidad,
+        }
+
+    return render(request, "api/auditoria.html", {"resultado": resultado})
+
+def auditoria_lote_view(request):
+    resultados = []
+
+    if request.method == "POST" and request.FILES.get("archivo"):
+        archivo = request.FILES["archivo"]
+
+        # Validación básica
+        if not archivo.name.lower().endswith(".csv"):
+            messages.error(request, "Por favor sube un archivo CSV.")
+            return render(request, "api/auditoria_lote.html", {"resultados": resultados})
+
+        try:
+            # Decodificar a texto y leer CSV
+            wrapper = io.TextIOWrapper(archivo.file, encoding="utf-8")
+            reader = csv.DictReader(wrapper)
+
+            # Validar columnas requeridas
+            columnas_req = {"importe", "metodo_pago", "direccion_envio"}
+            if not columnas_req.issubset(set([c.strip() for c in reader.fieldnames or []])):
+                messages.error(
+                    request,
+                    "El CSV debe tener las columnas: importe, metodo_pago, direccion_envio."
+                )
+                return render(request, "api/auditoria_lote.html", {"resultados": resultados})
+
+            # Procesar filas
+            for row in reader:
+                datos = {
+                    "importe": row.get("importe"),
+                    "metodo_pago": row.get("metodo_pago"),
+                    "direccion_envio": row.get("direccion_envio"),
+                }
+                score, explicabilidad = predict_fraud(datos)
+                resultados.append({
+                    "importe": datos["importe"],
+                    "metodo_pago": datos["metodo_pago"],
+                    "direccion_envio": datos["direccion_envio"],
+                    "score_riesgo": score,
+                    "explicabilidad": explicabilidad,
+                })
+
+            # Ordenar de mayor a menor score para priorizar revisión
+            resultados.sort(key=lambda x: x["score_riesgo"], reverse=True)
+            messages.success(request, f"Se procesaron {len(resultados)} transacciones (no se guardó en BD).")
+
+        except Exception as e:
+            messages.error(request, f"Error al procesar el CSV: {e}")
+
+    return render(request, "api/auditoria_lote.html", {"resultados": resultados})

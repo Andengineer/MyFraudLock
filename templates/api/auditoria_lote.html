@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Auditoría por Lote (CSV)</title>
+</head>
+<body>
+  <h1>Auditoría por Lote (CSV)</h1>
+
+  {% if messages %}
+    <ul>
+      {% for message in messages %}
+        <li style="color:{% if message.tags == 'error' %}red{% else %}green{% endif %}">
+          {{ message }}
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  <p><b>Formato esperado (cabeceras):</b> <code>importe,metodo_pago,direccion_envio</code></p>
+
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <input type="file" name="archivo" accept=".csv" required>
+    <button type="submit">Procesar CSV</button>
+  </form>
+
+  {% if resultados %}
+  <h2>Resultados (ordenados por score de riesgo desc.)</h2>
+  <table border="1" cellpadding="6">
+    <tr>
+      <th>#</th>
+      <th>Importe</th>
+      <th>Método de pago</th>
+      <th>Dirección de envío</th>
+      <th>Score riesgo</th>
+      <th>Explicabilidad</th>
+    </tr>
+    {% for r in resultados %}
+    <tr>
+      <td>{{ forloop.counter }}</td>
+      <td>{{ r.importe }}</td>
+      <td>{{ r.metodo_pago }}</td>
+      <td>{{ r.direccion_envio }}</td>
+      <td>{{ r.score_riesgo }}</td>
+      <td><pre style="margin:0">{{ r.explicabilidad|safe }}</pre></td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+
+  <br>
+  <a href="{% url 'auditoria_front' %}">Auditoría Individual</a> |
+  <a href="{% url 'incidentes_listado' %}">Incidentes</a> |
+  <a href="{% url 'dashboard' %}">Dashboard</a>
+</body>
+</html>
