@@ -1,32 +1,47 @@
 {% extends "api/base.html" %}
-    {% block title %}Listado de Incidentes{% endblock %}
-{% block content %}
-    <h1>Listado de Incidentes</h1>
+{% block title %}Listado de Incidentes{% endblock %}
 
-    <table border="1">
+{% block content %}
+    <h1 class="mb-4">Listado de Incidentes</h1>
+
+    <table class="table table-bordered table-hover">
+    <thead class="table-dark">
         <tr>
             <th>ID</th>
-            <th>Estado</th>
             <th>Score Riesgo</th>
             <th>Fecha</th>
+            <th>Estado</th>
             <th>Acciones</th>
         </tr>
+    </thead>
+    <tbody>
         {% for incidente in incidentes %}
         <tr>
             <td>{{ incidente.id_incidente }}</td>
-            <td>{{ incidente.estado }}</td>
             <td>{{ incidente.score_riesgo }}</td>
             <td>{{ incidente.fecha }}</td>
             <td>
-                <a href="/api/incidentes/{{ incidente.id_incidente }}/detalle/">Gestionar</a>
+                {% if incidente.estado == "Pendiente" %}
+                    <span class="badge bg-warning text-dark">{{ incidente.estado }}</span>
+                {% elif incidente.estado == "Falso positivo" %}
+                    <span class="badge bg-success">{{ incidente.estado }}</span>
+                {% elif incidente.estado == "Fraude confirmado" %}
+                    <span class="badge bg-danger">{{ incidente.estado }}</span>
+                {% else %}
+                    <span class="badge bg-secondary">{{ incidente.estado }}</span>
+                {% endif %}
+            </td>
+            <td>
+                <a class="btn btn-sm btn-primary" href="/api/incidentes/{{ incidente.id_incidente }}/detalle/">Gestionar</a>
             </td>
         </tr>
         {% empty %}
         <tr>
-            <td colspan="5">No hay incidentes registrados.</td>
+            <td colspan="5" class="text-center">No hay incidentes registrados.</td>
         </tr>
         {% endfor %}
-    </table>
+    </tbody>
+</table>
 {% endblock %}
 {% if messages %}
     <ul>

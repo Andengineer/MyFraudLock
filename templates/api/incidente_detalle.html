@@ -1,49 +1,84 @@
 {% extends "api/base.html" %}
-    {% block title %}Detalle de Incidente{% endblock %}
+{% load static %}
+
+{% block title %}Detalle de Incidente{% endblock %}
+
 {% block content %}
-    <h1>Detalle del Incidente #{{ incidente.id_incidente }}</h1>
+<div class="container mt-4">
+  <div class="card shadow-lg">
+    <!-- Header con color según estado -->
+    <div class="card-header
+      {% if incidente.estado == "Pendiente" %} bg-warning text-dark
+      {% elif incidente.estado == "Falso positivo" %} bg-success text-white
+      {% elif incidente.estado == "Fraude confirmado" %} bg-danger text-white
+      {% else %} bg-secondary text-white
+      {% endif %}">
+      <h4 class="mb-0">Detalle del Incidente #{{ incidente.id_incidente }}</h4>
+    </div>
 
-    <h2>Información del incidente</h2>
-    <ul>
-        <li>Estado actual: {{ incidente.estado }}</li>
-        <li>Score de Riesgo: {{ incidente.score_riesgo }}</li>
-        <li>Fecha: {{ incidente.fecha }}</li>
-        <li>Comentario: {{ incidente.comentario }}</li>
-    </ul>
+    <div class="card-body">
+      <!-- Información del incidente -->
+      <h5 class="card-title">Información del incidente</h5>
+      <ul class="list-group mb-3">
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+    <strong>Estado actual:</strong>
+    <span class="badge
+      {% if incidente.estado == 'Pendiente' %} bg-warning text-dark
+      {% elif incidente.estado == 'Falso positivo' %} bg-success
+      {% elif incidente.estado == 'Fraude confirmado' %} bg-danger
+      {% else %} bg-secondary
+      {% endif %}">
+      {{ incidente.estado }}
+    </span>
+  </li>
+        <li class="list-group-item"><strong>Score de Riesgo:</strong> {{ incidente.score_riesgo }}</li>
+        <li class="list-group-item"><strong>Fecha:</strong> {{ incidente.fecha }}</li>
+        <li class="list-group-item"><strong>Comentario:</strong> {{ incidente.comentario }}</li>
+      </ul>
 
-    <h2>Transacción asociada</h2>
-    <ul>
-        <li>ID Transacción: {{ incidente.id_transaccion.id_transaccion }}</li>
-        <li>Importe: {{ incidente.id_transaccion.importe }}</li>
-        <li>Método de pago: {{ incidente.id_transaccion.metodo_pago }}</li>
-        <li>Dirección de envío: {{ incidente.id_transaccion.direccion_envio }}</li>
-    </ul>
+      <!-- Transacción asociada -->
+      <h5 class="card-title">Transacción asociada</h5>
+      <ul class="list-group mb-3">
+        <li class="list-group-item"><strong>ID Transacción:</strong> {{ incidente.id_transaccion.id_transaccion }}</li>
+        <li class="list-group-item"><strong>Importe:</strong> S/ {{ incidente.id_transaccion.importe }}</li>
+        <li class="list-group-item"><strong>Método de pago:</strong> {{ incidente.id_transaccion.metodo_pago }}</li>
+        <li class="list-group-item"><strong>Dirección de envío:</strong> {{ incidente.id_transaccion.direccion_envio }}</li>
+      </ul>
 
-    <h2>Explicabilidad</h2>
-    <pre>{{ incidente.explicabilidad|safe }}</pre>
+      <!-- Explicabilidad -->
+      <h5 class="card-title">Explicabilidad</h5>
+      <div class="alert alert-info">
+        <pre class="mb-0">{{ incidente.explicabilidad|safe }}</pre>
+      </div>
 
-    <h2>Gestionar</h2>
-    <form method="post">
+      <!-- Formulario de gestión -->
+      <h5 class="card-title">Gestionar</h5>
+      <form method="post" class="mb-3">
         {% csrf_token %}
-        <label for="estado">Cambiar estado:</label>
-        <select name="estado" id="estado">
+        <div class="mb-3">
+          <label for="estado" class="form-label">Cambiar estado:</label>
+          <select name="estado" id="estado" class="form-select">
             <option value="Fraude confirmado">Fraude confirmado</option>
             <option value="Falso positivo">Falso positivo</option>
-        </select>
-        <br><br>
-        <label for="comentario">Comentario:</label><br>
-        <textarea name="comentario" rows="4" cols="40">{{ incidente.comentario }}</textarea>
-        <br><br>
-        <button type="submit">Guardar</button>
-    </form>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label for="comentario" class="form-label">Comentario:</label>
+          <textarea name="comentario" rows="4" class="form-control">{{ incidente.comentario }}</textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">Guardar</button>
+        <a href="{% url 'incidentes_listado' %}" class="btn btn-secondary">Volver</a>
+      </form>
 
-    <br>
-    <a href="{% url 'incidentes_listado' %}">Volver al listado</a>
+      <!-- Mensajes de éxito -->
+      {% if messages %}
+        <div class="alert alert-success">
+          {% for message in messages %}
+            <p class="mb-0">{{ message }}</p>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
 {% endblock %}
-{% if messages %}
-    <ul>
-        {% for message in messages %}
-            <li style="color: green;">{{ message }}</li>
-        {% endfor %}
-    </ul>
-{% endif %}

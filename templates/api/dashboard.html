@@ -1,36 +1,59 @@
 {% extends "api/base.html" %}
-
 {% block title %}Dashboard{% endblock %}
 
 {% block content %}
-<h1>Dashboard Antifraude</h1>
+<h1 class="mb-4">Dashboard Antifraude</h1>
 
-<h2>Estadísticas de Incidentes</h2>
-<ul>
-    <li>Pendientes: {{ pendientes }}</li>
-    <li>Fraude confirmado: {{ confirmados }}</li>
-    <li>Falsos positivos: {{ falsos }}</li>
-</ul>
+<div class="row text-center">
+    <div class="col-md-4">
+        <div class="card bg-warning text-dark mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Pendientes</h5>
+                <p class="card-text display-6">{{ pendientes }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-danger text-white mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Fraude confirmado</h5>
+                <p class="card-text display-6">{{ confirmados }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-success text-white mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Falsos positivos</h5>
+                <p class="card-text display-6">{{ falsos }}</p>
+            </div>
+        </div>
+    </div>
+</div>
 
-<h2>Últimos incidentes</h2>
-<table border="1">
-    <tr>
-        <th>ID</th>
-        <th>Estado</th>
-        <th>Score Riesgo</th>
-        <th>Fecha</th>
-    </tr>
-    {% for incidente in recientes %}
-    <tr>
-        <td>{{ incidente.id_incidente }}</td>
-        <td>{{ incidente.estado }}</td>
-        <td>{{ incidente.score_riesgo }}</td>
-        <td>{{ incidente.fecha }}</td>
-    </tr>
-    {% empty %}
-    <tr>
-        <td colspan="4">No hay incidentes registrados.</td>
-    </tr>
-    {% endfor %}
+<h2 class="mt-4">Últimos incidentes</h2>
+<table class="table table-striped table-hover">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Estado</th>
+            <th>Score Riesgo</th>
+            <th>Fecha</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for incidente in recientes %}
+        <tr>
+            <td>{{ incidente.id_incidente }}</td>
+            <td>{{ incidente.estado }}</td>
+            <td>{{ incidente.score_riesgo }}</td>
+            <td>{{ incidente.fecha }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="4" class="text-center">No hay incidentes registrados.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
 </table>
 {% endblock %}
