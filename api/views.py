@@ -1,12 +1,13 @@
-from django.shortcuts import render
-from .serializers import UsuarioSerializer, TransaccionSerializer, IncidenteSerializer
-from .models import Transaccion, Incidente, Usuario
+from django.shortcuts import render, get_object_or_404, redirect
 from django_filters.rest_framework import DjangoFilterBackend
+from django.contrib import messages
 from rest_framework import filters,status, viewsets
 from rest_framework.decorators import action
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from .ml_utils import predict_fraud
+from .serializers import UsuarioSerializer, TransaccionSerializer, IncidenteSerializer
+from .models import Transaccion, Incidente, Usuario
 
 class UsuarioViewSet(viewsets.ModelViewSet):
     queryset = Usuario.objects.all()
@@ -87,4 +88,39 @@ class AuditoriaView(APIView):
 
         return Response(resultados, status=status.HTTP_200_OK)
 
+def dashboard_view(request):
+    # Contar incidentes por estado
+    pendientes = Incidente.objects.filter(estado="Pendiente").count()
+    confirmados = Incidente.objects.filter(estado="Fraude confirmado").count()
+    falsos = Incidente.objects.filter(estado="Falso positivo").count()
 
+    # Últimos 5 incidentes
+    recientes = Incidente.objects.all().order_by('-fecha')[:5]
+
+    contexto = {
+        "pendientes": pendientes,
+        "confirmados": confirmados,
+        "falsos": falsos,
+        "recientes": recientes,
+    }
+    return render(request, "api/dashboard.html", contexto)
+
+def incidentes_view(request):
+    incidentes = Incidente.objects.all().order_by('-fecha')
+    return render(request, "api/incidentes.html", {"incidentes": incidentes})
+
+def incidente_detalle_view(request, incidente_id):
+    incidente = get_object_or_404(Incidente, id_incidente=incidente_id)
+
+    if request.method == "POST":
+        nuevo_estado = request.POST.get("estado")
+        comentario = request.POST.get("comentario", "")
+
+        if nuevo_estado in ["Fraude confirmado", "Falso positivo"]:
+            incidente.estado = nuevo_estado
+            incidente.comentario = comentario
+            incidente.save()
+            messages.success(request, f"Incidente #{incidente.id_incidente} actualizado correctamente a {nuevo_estado}.")
+            return redirect("incidentes_listado")
+
+    return render(request, "api/incidente_detalle.html", {"incidente": incidente})

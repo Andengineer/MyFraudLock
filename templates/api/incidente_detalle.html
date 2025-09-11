@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Detalle de Incidente</title>
+</head>
+<body>
+    <h1>Detalle del Incidente #{{ incidente.id_incidente }}</h1>
+
+    <h2>Información del incidente</h2>
+    <ul>
+        <li>Estado actual: {{ incidente.estado }}</li>
+        <li>Score de Riesgo: {{ incidente.score_riesgo }}</li>
+        <li>Fecha: {{ incidente.fecha }}</li>
+        <li>Comentario: {{ incidente.comentario }}</li>
+    </ul>
+
+    <h2>Transacción asociada</h2>
+    <ul>
+        <li>ID Transacción: {{ incidente.id_transaccion.id_transaccion }}</li>
+        <li>Importe: {{ incidente.id_transaccion.importe }}</li>
+        <li>Método de pago: {{ incidente.id_transaccion.metodo_pago }}</li>
+        <li>Dirección de envío: {{ incidente.id_transaccion.direccion_envio }}</li>
+    </ul>
+
+    <h2>Explicabilidad</h2>
+    <pre>{{ incidente.explicabilidad|safe }}</pre>
+
+    <h2>Gestionar</h2>
+    <form method="post">
+        {% csrf_token %}
+        <label for="estado">Cambiar estado:</label>
+        <select name="estado" id="estado">
+            <option value="Fraude confirmado">Fraude confirmado</option>
+            <option value="Falso positivo">Falso positivo</option>
+        </select>
+        <br><br>
+        <label for="comentario">Comentario:</label><br>
+        <textarea name="comentario" rows="4" cols="40">{{ incidente.comentario }}</textarea>
+        <br><br>
+        <button type="submit">Guardar</button>
+    </form>
+
+    <br>
+    <a href="{% url 'incidentes_listado' %}">Volver al listado</a>
+</body>
+{% if messages %}
+    <ul>
+        {% for message in messages %}
+            <li style="color: green;">{{ message }}</li>
+        {% endfor %}
+    </ul>
+{% endif %}
+</html>

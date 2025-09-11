@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard Antifraude</title>
+</head>
+<body>
+    <h1>Dashboard Antifraude</h1>
+
+    <h2>Estadísticas de Incidentes</h2>
+    <ul>
+        <li>Pendientes: {{ pendientes }}</li>
+        <li>Fraude confirmado: {{ confirmados }}</li>
+        <li>Falsos positivos: {{ falsos }}</li>
+    </ul>
+
+    <h2>Últimos incidentes</h2>
+    <table border="1">
+        <tr>
+            <th>ID</th>
+            <th>Estado</th>
+            <th>Score Riesgo</th>
+            <th>Fecha</th>
+        </tr>
+        {% for incidente in recientes %}
+        <tr>
+            <td>{{ incidente.id_incidente }}</td>
+            <td>{{ incidente.estado }}</td>
+            <td>{{ incidente.score_riesgo }}</td>
+            <td>{{ incidente.fecha }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="4">No hay incidentes registrados.</td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>

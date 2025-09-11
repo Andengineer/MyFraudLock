@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Listado de Incidentes</title>
+</head>
+<body>
+    <h1>Listado de Incidentes</h1>
+
+    <table border="1">
+        <tr>
+            <th>ID</th>
+            <th>Estado</th>
+            <th>Score Riesgo</th>
+            <th>Fecha</th>
+            <th>Acciones</th>
+        </tr>
+        {% for incidente in incidentes %}
+        <tr>
+            <td>{{ incidente.id_incidente }}</td>
+            <td>{{ incidente.estado }}</td>
+            <td>{{ incidente.score_riesgo }}</td>
+            <td>{{ incidente.fecha }}</td>
+            <td>
+                <a href="/api/incidentes/{{ incidente.id_incidente }}/detalle/">Gestionar</a>
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="5">No hay incidentes registrados.</td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+{% if messages %}
+    <ul>
+        {% for message in messages %}
+            <li style="color: green;">{{ message }}</li>
+        {% endfor %}
+    </ul>
+{% endif %}
+</html>
