@@ -3,6 +3,7 @@ from .serializers import UsuarioSerializer, TransaccionSerializer, IncidenteSeri
 from .models import Transaccion, Incidente, Usuario
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters,status, viewsets
+from rest_framework.decorators import action
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from .ml_utils import predict_fraud
@@ -46,15 +47,44 @@ class IncidenteViewSet(viewsets.ModelViewSet):
     ordering_fields = ['score_riesgo', 'fecha']  # 👈 permitimos ordenar
     ordering = ['-fecha']
 
+    @action(detail=True, methods=['patch'])
+    def cambiar_estado(self, request, pk=None):
+        incidente = self.get_object()
+        nuevo_estado = request.data.get("estado")
+
+        if nuevo_estado not in ["Fraude confirmado", "Falso positivo"]:
+            return Response(
+                {"error": "Estado no válido. Usa 'Fraude confirmado' o 'Falso positivo'."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        incidente.estado = nuevo_estado
+        incidente.comentario = request.data.get("comentario", "")
+        incidente.save()
+
+        return Response(
+            {"mensaje": f"Incidente {incidente.id_incidente} actualizado a {incidente.estado}."},
+            status=status.HTTP_200_OK
+        )
+
 class AuditoriaView(APIView):
     def post(self, request):
-        # Ejecutar predicción sin guardar en BD
-        score, explicabilidad = predict_fraud(request.data)
+        data = request.data
 
-        return Response({
-            "score_riesgo": score,
-            "explicabilidad": explicabilidad,
-            "mensaje": "Esto es solo una predicción temporal, no se guardó en la base de datos."
-        }, status=status.HTTP_200_OK)
+        # Si es un solo objeto, lo procesamos como lista de 1
+        if isinstance(data, dict):
+            data = [data]
+
+        resultados = []
+        for transaccion in data:
+            score, explicabilidad = predict_fraud(transaccion)
+            resultados.append({
+                "transaccion": transaccion,
+                "score_riesgo": score,
+                "explicabilidad": explicabilidad,
+                "mensaje": "Predicción temporal, no guardada en BD."
+            })
+
+        return Response(resultados, status=status.HTTP_200_OK)
 
 
