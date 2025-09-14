@@ -1,7 +1,5 @@
 from rest_framework import serializers
-from .models import Usuario
-from .models import Transaccion
-from .models import Incidente
+from .models import Usuario, Transaccion, Incidente, Configuracion
 
 class UsuarioSerializer(serializers.ModelSerializer):
     class Meta:
@@ -22,3 +20,9 @@ class IncidenteSerializer(serializers.ModelSerializer):
         if Incidente.objects.filter(id_transaccion=value).exists():
             raise serializers.ValidationError("Esta transacción ya tiene un incidente registrado.")
         return value
+
+class ConfiguracionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Configuracion
+        fields = '__all__'
+

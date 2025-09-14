@@ -7,9 +7,11 @@ from rest_framework import filters,status, viewsets
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.decorators import action
+from django.contrib.auth.decorators import login_required
 from .ml_utils import predict_fraud
-from .serializers import UsuarioSerializer, TransaccionSerializer, IncidenteSerializer
-from .models import Transaccion, Incidente, Usuario
+from .serializers import UsuarioSerializer, TransaccionSerializer, IncidenteSerializer, ConfiguracionSerializer
+from .models import Transaccion, Incidente, Usuario, Configuracion
+
 
 class UsuarioViewSet(viewsets.ModelViewSet):
     queryset = Usuario.objects.all()
@@ -30,8 +32,12 @@ class TransaccionViewSet(viewsets.ModelViewSet):
         # Ejecutar predicción
         score, explicabilidad = predict_fraud(serializer.data)
 
-        # Umbral de riesgo
-        if score >= 70:
+        # Obtener umbral dinámico (si no existe, se crea con 70)
+        config, _ = Configuracion.objects.get_or_create(id=1, defaults={"umbral_score": 70})
+        umbral = config.umbral_score
+
+        # Evaluar score contra umbral
+        if score >= umbral:
             Incidente.objects.create(
                 id_transaccion=transaccion,
                 score_riesgo=score,
@@ -127,6 +133,9 @@ def incidente_detalle_view(request, incidente_id):
 
     return render(request, "api/incidente_detalle.html", {"incidente": incidente})
 
+class ConfiguracionViewSet(viewsets.ModelViewSet):
+    queryset = Configuracion.objects.all()
+    serializer_class = ConfiguracionSerializer
 @csrf_exempt
 def auditoria_view(request):
     resultado = None
@@ -199,3 +208,4 @@ def auditoria_lote_view(request):
             messages.error(request, f"Error al procesar el CSV: {e}")
 
     return render(request, "api/auditoria_lote.html", {"resultados": resultados})
+

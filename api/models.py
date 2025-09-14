@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import User
 
 class Usuario(models.Model):
     id_usuario = models.AutoField(primary_key=True)
@@ -34,3 +35,13 @@ class Incidente(models.Model):
 
     def __str__(self):
         return f"Incidente {self.id_incidente} - Estado: {self.estado}"
+
+class Configuracion(models.Model):
+    umbral_score = models.IntegerField(default=70)
+    actualizado_en = models.DateTimeField(auto_now=True)
+    actualizado_por = models.ForeignKey('Usuario', on_delete=models.SET_NULL, null=True, blank=True)
+
+    def __str__(self):
+        return f"Umbral {self.umbral_score}%"
+
+
