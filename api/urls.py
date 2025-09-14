@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import UsuarioViewSet, TransaccionViewSet, IncidenteViewSet, AuditoriaView, dashboard_view, incidentes_view, incidente_detalle_view, auditoria_view, auditoria_lote_view, configuracion_view, ConfiguracionViewSet
+from .views import UsuarioViewSet, TransaccionViewSet, IncidenteViewSet, AuditoriaView, dashboard_view, incidentes_view, incidente_detalle_view, auditoria_view, auditoria_lote_view, configuracion_front, ConfiguracionViewSet
 
 router = DefaultRouter()
 router.register(r'usuarios', UsuarioViewSet)
@@ -17,5 +17,5 @@ urlpatterns = [
     path('dashboard/', dashboard_view, name='dashboard'),
     path('incidentes-listado/', incidentes_view, name='incidentes_listado'),
     path('incidentes/<int:incidente_id>/detalle/', incidente_detalle_view, name='incidente_detalle'),
-    path('configuracion/', configuracion_view, name='configuracion'),
+    path('configuracion-front/', configuracion_front, name='configuracion_front'),
 ]

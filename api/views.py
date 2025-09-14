@@ -7,7 +7,6 @@ from rest_framework import filters,status, viewsets
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.decorators import action
-from django.contrib.auth.decorators import login_required
 from .ml_utils import predict_fraud
 from .serializers import UsuarioSerializer, TransaccionSerializer, IncidenteSerializer, ConfiguracionSerializer
 from .models import Transaccion, Incidente, Usuario, Configuracion
@@ -96,6 +95,9 @@ class AuditoriaView(APIView):
 
         return Response(resultados, status=status.HTTP_200_OK)
 
+class ConfiguracionViewSet(viewsets.ModelViewSet):
+    queryset = Configuracion.objects.all()
+    serializer_class = ConfiguracionSerializer
 def dashboard_view(request):
     # Contar incidentes por estado
     pendientes = Incidente.objects.filter(estado="Pendiente").count()
@@ -132,10 +134,6 @@ def incidente_detalle_view(request, incidente_id):
             return redirect("incidentes_listado")
 
     return render(request, "api/incidente_detalle.html", {"incidente": incidente})
-
-class ConfiguracionViewSet(viewsets.ModelViewSet):
-    queryset = Configuracion.objects.all()
-    serializer_class = ConfiguracionSerializer
 @csrf_exempt
 def auditoria_view(request):
     resultado = None
@@ -209,3 +207,26 @@ def auditoria_lote_view(request):
 
     return render(request, "api/auditoria_lote.html", {"resultados": resultados})
 
+def configuracion_front(request):
+    config, _ = Configuracion.objects.get_or_create(id=1)
+
+    if request.method == "POST":
+        nuevo_umbral = int(request.POST.get("umbral_score"))
+        id_usuario = request.POST.get("actualizado_por")
+
+        config.umbral_score = nuevo_umbral
+        if id_usuario:
+            try:
+                usuario = Usuario.objects.get(id_usuario=id_usuario)
+                config.actualizado_por = usuario
+            except Usuario.DoesNotExist:
+                pass
+        config.save()
+        messages.success(request, "Configuración actualizada correctamente.")
+        return redirect("configuracion_front")
+
+    return render(
+        request,
+        "api/configuracion.html",
+        {"config": config, "usuarios": Usuario.objects.all()}
+    )
