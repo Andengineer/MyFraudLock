@@ -2,42 +2,45 @@
 {% block title %}Configuración de Umbral{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-  <div class="card shadow">
-    <div class="card-header bg-primary text-white">
-      <h5 class="mb-0">Configuración de Política de Umbral</h5>
-    </div>
-    <div class="card-body">
-      <form method="post">
-        {% csrf_token %}
-        <div class="mb-3">
-          <label for="umbral_score" class="form-label">Umbral de Score de Riesgo (%)</label>
-          <input type="number" class="form-control" id="umbral_score" name="umbral_score" 
-                 value="{{ config.umbral_score }}" min="0" max="100" required>
-        </div>
+<div class="page-head">
+  <div>
+    <h1 class="h3 mb-1">Configuración</h1>
+    <div class="breadcrumbs"><a href="{% url 'inicio' %}">Inicio</a> / Configuración</div>
+  </div>
+  <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-icon" data-back><i class="bi bi-arrow-left"></i> Volver</a>
+</div>
 
-        <div class="mb-3">
-          <label for="actualizado_por" class="form-label">Usuario que actualiza</label>
-          <select id="actualizado_por" name="actualizado_por" class="form-select">
-            <option value="">-- Seleccionar usuario --</option>
-            {% for usuario in usuarios %}
-              <option value="{{ usuario.id_usuario }}" 
-                {% if config.actualizado_por and usuario.id_usuario == config.actualizado_por.id_usuario %}selected{% endif %}>
-                {{ usuario.username }}
-              </option>
-            {% endfor %}
-          </select>
-        </div>
-
-        <button type="submit" class="btn btn-primary">Guardar</button>
-      </form>
-
-      <hr>
-      <p class="text-muted mt-3">
-        <strong>Última actualización:</strong> {{ config.actualizado_en|date:"d/m/Y H:i" }}<br>
-        <strong>Por:</strong> {{ config.actualizado_por.username|default:"—" }}
-      </p>
-    </div>
+<div class="card shadow-sm">
+  <div class="card-header bg-primary text-white"><h5>Política de Umbral</h5></div>
+  <div class="card-body">
+    <form method="post" class="row g-3">
+      {% csrf_token %}
+      <div class="col-md-6">
+        <label for="umbral_score" class="form-label">Umbral de Score de Riesgo (%)</label>
+        <input type="number" class="form-control" id="umbral_score" name="umbral_score"
+               value="{{ config.umbral_score }}" min="0" max="100" required>
+      </div>
+      <div class="col-md-6">
+        <label for="actualizado_por" class="form-label">Usuario que actualiza</label>
+        <select id="actualizado_por" name="actualizado_por" class="form-select">
+          <option value="">-- Seleccionar usuario --</option>
+          {% for usuario in usuarios %}
+            <option value="{{ usuario.id_usuario }}"
+              {% if config.actualizado_por and usuario.id_usuario == config.actualizado_por.id_usuario %}selected{% endif %}>
+              {{ usuario.username }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-12">
+        <button type="submit" class="btn btn-primary btn-icon"><i class="bi bi-save"></i> Guardar</button>
+      </div>
+    </form>
+    <hr>
+    <p class="text-muted mb-0">
+      <strong>Última actualización:</strong> {{ config.actualizado_en|date:"d/m/Y H:i" }}<br>
+      <strong>Por:</strong> {{ config.actualizado_por.username|default:"—" }}
+    </p>
   </div>
 </div>
 {% endblock %}

@@ -231,7 +231,16 @@ def configuracion_front(request):
         {"config": config, "usuarios": Usuario.objects.all()}
     )
 def inicio_view(request):
-    return render(request, "api/inicio.html")
+    pendientes = Incidente.objects.filter(estado="Pendiente").count()
+    confirmados = Incidente.objects.filter(estado="Fraude confirmado").count()
+    falsos = Incidente.objects.filter(estado="Falso positivo").count()
+
+    contexto = {
+        "pendientes": pendientes,
+        "confirmados": confirmados,
+        "falsos": falsos,
+    }
+    return render(request, "api/inicio.html", contexto)
 
 def ayuda_view(request):
     config, _ = Configuracion.objects.get_or_create(id=1)

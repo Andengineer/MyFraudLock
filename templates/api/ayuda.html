@@ -2,30 +2,35 @@
 {% block title %}Información y Ayuda{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-  <h1>Información y Ayuda</h1>
-  <p class="lead">Aquí encontrarás orientación para usar el sistema FraudLock.</p>
-  <hr>
+<div class="page-head">
+  <div>
+    <h1 class="h3 mb-1">Información y Ayuda</h1>
+    <div class="breadcrumbs"><a href="{% url 'inicio' %}">Inicio</a> / Ayuda</div>
+  </div>
+  <a href="{% url 'inicio' %}" class="btn btn-outline-secondary btn-icon" data-back><i class="bi bi-arrow-left"></i> Volver</a>
+</div>
 
-  <h3>Estados de los incidentes</h3>
-  <ul>
-    <li><span class="badge bg-warning text-dark">Pendiente</span> → El incidente aún no ha sido revisado.</li>
-    <li><span class="badge bg-danger">Fraude confirmado</span> → El incidente ha sido validado como fraude.</li>
-    <li><span class="badge bg-success">Falso positivo</span> → El incidente fue descartado, la transacción era legítima.</li>
-  </ul>
+<div class="card shadow-sm">
+  <div class="card-body">
+    <h4 class="h5">Estados de los incidentes</h4>
+    <ul>
+      <li><span class="badge bg-warning text-dark">Pendiente</span> → En espera de revisión.</li>
+      <li><span class="badge bg-danger">Fraude confirmado</span> → Validado como fraude.</li>
+      <li><span class="badge bg-success">Falso positivo</span> → La transacción era legítima.</li>
+    </ul>
 
-  <h3>Interpretación del Score de Riesgo</h3>
-  <p>El sistema calcula un <strong>score de riesgo (0-100)</strong>. Mientras mayor el score, mayor la probabilidad de fraude. 
-     El umbral actual es <strong>{{ config.umbral_score }}%</strong>. Las transacciones iguales o superiores a este valor se marcan como incidentes.</p>
+    <h4 class="h5 mt-3">Interpretación del Score de Riesgo</h4>
+    <p>El sistema calcula un <strong>score de riesgo (0–100)</strong>. A mayor score, mayor probabilidad de fraude.
+       El umbral actual es <strong>{{ config.umbral_score }}%</strong>. Transacciones con score ≥ umbral generan incidentes.</p>
 
-  <h3>Auditoría</h3>
-  <p>Puedes auditar:</p>
-  <ul>
-    <li><strong>Individual</strong>: ingresando importe, método de pago y dirección de envío.</li>
-    <li><strong>Por lote</strong>: subiendo un archivo CSV con las columnas <code>importe, metodo_pago, direccion_envio</code>.</li>
-  </ul>
+    <h4 class="h5 mt-3">Auditoría</h4>
+    <ul>
+      <li><strong>Individual:</strong> ingresa importe, método de pago y dirección.</li>
+      <li><strong>Por lote:</strong> sube un CSV con <code>importe,metodo_pago,direccion_envio</code>.</li>
+    </ul>
 
-  <h3>Soporte</h3>
-  <p>Para consultas adicionales, contacta al equipo de soporte.</p>
+    <h4 class="h5 mt-3">Soporte</h4>
+    <p>Para consultas adicionales, contacta al equipo de soporte.</p>
+  </div>
 </div>
 {% endblock %}

@@ -2,58 +2,82 @@
 {% block title %}Dashboard{% endblock %}
 
 {% block content %}
-<h1 class="mb-4">Dashboard Antifraude</h1>
-
-<div class="row text-center">
-    <div class="col-md-4">
-        <div class="card bg-warning text-dark mb-3">
-            <div class="card-body">
-                <h5 class="card-title">Pendientes</h5>
-                <p class="card-text display-6">{{ pendientes }}</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card bg-danger text-white mb-3">
-            <div class="card-body">
-                <h5 class="card-title">Fraude confirmado</h5>
-                <p class="card-text display-6">{{ confirmados }}</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card bg-success text-white mb-3">
-            <div class="card-body">
-                <h5 class="card-title">Falsos positivos</h5>
-                <p class="card-text display-6">{{ falsos }}</p>
-            </div>
-        </div>
-    </div>
+<div class="page-head">
+  <div>
+    <h1 class="h3 mb-1">Dashboard Antifraude</h1>
+    <div class="breadcrumbs"><a href="{% url 'inicio' %}">Inicio</a> / Dashboard</div>
+  </div>
+  <div>
+    <a href="{% url 'incidentes_listado' %}" class="btn btn-outline-primary btn-icon">
+      <i class="bi bi-list-task"></i> Ver incidentes
+    </a>
+  </div>
 </div>
 
-<h2 class="mt-4">Últimos incidentes</h2>
-<table class="table table-striped table-hover">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Estado</th>
-            <th>Score Riesgo</th>
-            <th>Fecha</th>
-        </tr>
+<div class="row text-center g-3">
+  <div class="col-md-4">
+    <div class="card bg-warning text-dark shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">Pendientes</h5>
+        <p class="display-6">{{ pendientes }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card text-white shadow-sm" style="background:#d00000">
+      <div class="card-body">
+        <h5 class="card-title">Fraude confirmado</h5>
+        <p class="display-6">{{ confirmados }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card bg-success text-white shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">Falsos positivos</h5>
+        <p class="display-6">{{ falsos }}</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h2 class="mt-4 h5">Últimos incidentes</h2>
+<div class="table-responsive">
+  <table class="table table-striped table-hover align-middle">
+    <thead class="table-light">
+      <tr>
+        <th>ID</th>
+        <th>Estado</th>
+        <th>Score Riesgo</th>
+        <th>Fecha</th>
+        <th></th>
+      </tr>
     </thead>
     <tbody>
-        {% for incidente in recientes %}
-        <tr>
-            <td>{{ incidente.id_incidente }}</td>
-            <td>{{ incidente.estado }}</td>
-            <td>{{ incidente.score_riesgo }}</td>
-            <td>{{ incidente.fecha }}</td>
-        </tr>
-        {% empty %}
-        <tr>
-            <td colspan="4" class="text-center">No hay incidentes registrados.</td>
-        </tr>
-        {% endfor %}
+      {% for incidente in recientes %}
+      <tr>
+        <td>{{ incidente.id_incidente }}</td>
+        <td>
+          {% if incidente.estado == "Pendiente" %}
+            <span class="badge bg-warning text-dark">{{ incidente.estado }}</span>
+          {% elif incidente.estado == "Falso positivo" %}
+            <span class="badge bg-success">{{ incidente.estado }}</span>
+          {% elif incidente.estado == "Fraude confirmado" %}
+            <span class="badge bg-danger">{{ incidente.estado }}</span>
+          {% else %}
+            <span class="badge bg-secondary">{{ incidente.estado }}</span>
+          {% endif %}
+        </td>
+        <td>{{ incidente.score_riesgo }}</td>
+        <td>{{ incidente.fecha }}</td>
+        <td><a class="btn btn-sm btn-outline-primary" href="/api/incidentes/{{ incidente.id_incidente }}/detalle/">
+          <i class="bi bi-box-arrow-in-right"></i> Gestionar
+        </a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="text-center text-muted">No hay incidentes registrados.</td></tr>
+      {% endfor %}
     </tbody>
-</table>
+  </table>
+</div>
 {% endblock %}

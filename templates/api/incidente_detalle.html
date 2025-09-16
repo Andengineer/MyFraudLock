@@ -1,10 +1,19 @@
 {% extends "api/base.html" %}
 {% load static %}
-
 {% block title %}Detalle de Incidente{% endblock %}
 
 {% block content %}
     <div class="container mt-4">
+        <div class="page-head">
+            <div>
+                <h1 class="h3 mb-1">Detalle del Incidente #{{ incidente.id_incidente }}</h1>
+                <div class="breadcrumbs"><a href="{% url 'inicio' %}">Inicio</a> / <a
+                        href="{% url 'incidentes_listado' %}">Incidentes</a> / Detalle
+                </div>
+            </div>
+            <a href="{% url 'incidentes_listado' %}" class="btn btn-outline-secondary btn-icon"><i
+                    class="bi bi-arrow-left"></i> Volver</a>
+        </div>
         <div class="card shadow-lg">
             <!-- Header con color según estado -->
             <div class="card-header
@@ -81,7 +90,8 @@
                     </div>
                     <div class="mb-3">
                         <label for="comentario" class="form-label">Comentario:</label>
-                        <textarea id="comentario" name="comentario" rows="4" class="form-control">{{ incidente.comentario }}</textarea>
+                        <textarea id="comentario" name="comentario" rows="4"
+                                  class="form-control">{{ incidente.comentario }}</textarea>
                     </div>
                     <!-- Botón abre modal -->
                     <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#confirmModal">
@@ -138,7 +148,10 @@
             background-color: #dc3545; /* Bootstrap danger */
             color: white;
         }
-        #previewComentario { white-space: pre-wrap; }
+
+        #previewComentario {
+            white-space: pre-wrap;
+        }
     </style>
     <script>
         // Cambiar color del select según opción

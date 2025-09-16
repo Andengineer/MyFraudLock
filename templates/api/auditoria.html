@@ -1,30 +1,57 @@
 {% extends "api/base.html" %}
-    {% block title %}Pantalla de Auditoría{% endblock %}
+{% block title %}Auditoría 1 a 1{% endblock %}
+
 {% block content %}
-    <h1>Pantalla de Auditoría</h1>
+<div class="page-head">
+  <div>
+    <h1 class="h3 mb-1">Auditoría individual</h1>
+    <div class="breadcrumbs"><a href="{% url 'inicio' %}">Inicio</a> / Auditoría 1 a 1</div>
+  </div>
+  <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-icon" data-back><i class="bi bi-arrow-left"></i> Volver</a>
+</div>
 
-    <h2>Auditoría individual</h2>
-    <form method="post">
-        {% csrf_token %}
-        <label for="importe">Importe:</label>
-        <input type="number" step="0.01" name="importe" required><br><br>
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-header bg-primary text-white"><h5>Ingresar datos</h5></div>
+      <div class="card-body">
+        <form method="post" class="row g-3">
+          {% csrf_token %}
+          <div class="col-12">
+            <label class="form-label" for="importe">Importe</label>
+            <input class="form-control" id="importe" type="number" step="0.01" name="importe" required>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="metodo_pago">Método de pago</label>
+            <input class="form-control" id="metodo_pago" type="text" name="metodo_pago" required>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="direccion_envio">Dirección de envío</label>
+            <input class="form-control" id="direccion_envio" type="text" name="direccion_envio" required>
+          </div>
+          <div class="col-12 d-flex gap-2">
+            <button class="btn btn-primary btn-icon" type="submit"><i class="bi bi-search"></i> Auditar</button>
+            <a href="{% url 'auditoria_lote' %}" class="btn btn-outline-primary btn-icon"><i class="bi bi-file-earmark-spreadsheet"></i> Por lote</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
 
-        <label for="metodo_pago">Método de Pago:</label>
-        <input type="text" name="metodo_pago" required><br><br>
-
-        <label for="direccion_envio">Dirección de Envío:</label>
-        <input type="text" name="direccion_envio" required><br><br>
-
-        <button type="submit">Auditar</button>
-    </form>
-
-    {% if resultado %}
-        <h3>Resultado</h3>
-        <p><b>Score Riesgo:</b> {{ resultado.score_riesgo }}</p>
-        <p><b>Explicabilidad:</b></p>
-        <pre>{{ resultado.explicabilidad }}</pre>
-    {% endif %}
-
-    <br>
-    <a href="{% url 'dashboard' %}">Volver al Dashboard</a>
+  {% if resultado %}
+  <div class="col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-header bg-success text-white"><h5>Resultado</h5></div>
+      <div class="card-body">
+        <p class="mb-1"><b>Score de riesgo:</b> {{ resultado.score_riesgo }}</p>
+        <p class="mb-2"><b>Explicabilidad:</b></p>
+        <details class="brand-subtle p-2 rounded">
+          <summary class="mb-2">Ver detalle</summary>
+          <pre class="mb-0">{{ resultado.explicabilidad }}</pre>
+        </details>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
 {% endblock %}

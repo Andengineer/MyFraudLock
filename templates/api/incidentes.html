@@ -1,52 +1,57 @@
 {% extends "api/base.html" %}
-{% block title %}Listado de Incidentes{% endblock %}
+{% block title %}Incidentes{% endblock %}
 
 {% block content %}
-    <h1 class="mb-4">Listado de Incidentes</h1>
+<div class="page-head">
+  <div>
+    <h1 class="h3 mb-1">Listado de Incidentes</h1>
+    <div class="breadcrumbs"><a href="{% url 'inicio' %}">Inicio</a> / Incidentes</div>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-icon" data-back>
+      <i class="bi bi-arrow-left"></i> Volver
+    </a>
+  </div>
+</div>
 
-    <table class="table table-bordered table-hover">
+<div class="table-responsive">
+  <table class="table table-bordered table-hover align-middle">
     <thead class="table-dark">
-        <tr>
-            <th>ID</th>
-            <th>Score Riesgo</th>
-            <th>Fecha</th>
-            <th>Estado</th>
-            <th>Acciones</th>
-        </tr>
+      <tr>
+        <th>ID</th>
+        <th>Score Riesgo</th>
+        <th>Fecha</th>
+        <th>Estado</th>
+        <th>Acciones</th>
+      </tr>
     </thead>
     <tbody>
-        {% for incidente in incidentes %}
-        <tr>
-            <td>{{ incidente.id_incidente }}</td>
-            <td>{{ incidente.score_riesgo }}</td>
-            <td>{{ incidente.fecha }}</td>
-            <td>
-                {% if incidente.estado == "Pendiente" %}
-                    <span class="badge bg-warning text-dark">{{ incidente.estado }}</span>
-                {% elif incidente.estado == "Falso positivo" %}
-                    <span class="badge bg-success">{{ incidente.estado }}</span>
-                {% elif incidente.estado == "Fraude confirmado" %}
-                    <span class="badge bg-danger">{{ incidente.estado }}</span>
-                {% else %}
-                    <span class="badge bg-secondary">{{ incidente.estado }}</span>
-                {% endif %}
-            </td>
-            <td>
-                <a class="btn btn-sm btn-primary" href="/api/incidentes/{{ incidente.id_incidente }}/detalle/">Gestionar</a>
-            </td>
-        </tr>
-        {% empty %}
-        <tr>
-            <td colspan="5" class="text-center">No hay incidentes registrados.</td>
-        </tr>
-        {% endfor %}
+      {% for incidente in incidentes %}
+      <tr>
+        <td>{{ incidente.id_incidente }}</td>
+        <td>{{ incidente.score_riesgo }}</td>
+        <td>{{ incidente.fecha }}</td>
+        <td>
+          {% if incidente.estado == "Pendiente" %}
+            <span class="badge bg-warning text-dark">{{ incidente.estado }}</span>
+          {% elif incidente.estado == "Falso positivo" %}
+            <span class="badge bg-success">{{ incidente.estado }}</span>
+          {% elif incidente.estado == "Fraude confirmado" %}
+            <span class="badge bg-danger">{{ incidente.estado }}</span>
+          {% else %}
+            <span class="badge bg-secondary">{{ incidente.estado }}</span>
+          {% endif %}
+        </td>
+        <td>
+          <a class="btn btn-sm btn-primary btn-icon" href="/api/incidentes/{{ incidente.id_incidente }}/detalle/">
+            <i class="bi bi-pencil-square"></i> Gestionar
+          </a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="text-center text-muted">No hay incidentes registrados.</td></tr>
+      {% endfor %}
     </tbody>
-</table>
+  </table>
+</div>
 {% endblock %}
-{% if messages %}
-    <ul>
-        {% for message in messages %}
-            <li style="color: green;">{{ message }}</li>
-        {% endfor %}
-    </ul>
-{% endif %}

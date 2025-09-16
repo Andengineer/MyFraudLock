@@ -1,52 +1,84 @@
 {% extends "api/base.html" %}
 {% block title %}Auditoría por Lote (CSV){% endblock %}
+
 {% block content %}
-  <h1>Auditoría por Lote (CSV)</h1>
+<div class="page-head">
+  <div>
+    <h1 class="h3 mb-1">Auditoría por Lote (CSV)</h1>
+    <div class="breadcrumbs"><a href="{% url 'inicio' %}">Inicio</a> / Auditoría por Lote</div>
+  </div>
+  <a href="{% url 'auditoria_front' %}" class="btn btn-outline-secondary btn-icon"><i class="bi bi-arrow-left"></i> Volver</a>
+</div>
 
-  {% if messages %}
-    <ul>
+<div class="card shadow-sm mb-3">
+  <div class="card-header bg-primary text-white"><h5>Cargar archivo</h5></div>
+  <div class="card-body">
+    {% if messages %}
       {% for message in messages %}
-        <li style="color:{% if message.tags == 'error' %}red{% else %}green{% endif %}">
-          {{ message }}
-        </li>
+        <div class="alert alert-{{ message.tags|default:'info' }} mb-3">{{ message }}</div>
       {% endfor %}
-    </ul>
-  {% endif %}
+    {% endif %}
 
-  <p><b>Formato esperado (cabeceras):</b> <code>importe,metodo_pago,direccion_envio</code></p>
+    <p class="mb-2"><b>Formato esperado (cabeceras):</b> <code>importe,metodo_pago,direccion_envio</code></p>
+    <details class="mb-3">
+      <summary>Ver ejemplo</summary>
+      <pre class="brand-subtle p-2 rounded mb-0">importe,metodo_pago,direccion_envio
+120.50,TARJETA,Calle 123 Lima
+999.90,TRANSFERENCIA,Av. Siempre Viva 742</pre>
+    </details>
 
-  <form method="post" enctype="multipart/form-data">
-    {% csrf_token %}
-    <input type="file" name="archivo" accept=".csv" required>
-    <button type="submit">Procesar CSV</button>
-  </form>
+    <form method="post" enctype="multipart/form-data" class="d-flex gap-2 align-items-center flex-wrap">
+      {% csrf_token %}
+      <input class="form-control" type="file" name="archivo" accept=".csv" required style="max-width:360px;">
+      <button class="btn btn-primary btn-icon" type="submit"><i class="bi bi-upload"></i> Procesar CSV</button>
+    </form>
+  </div>
+</div>
 
-  {% if resultados %}
-  <h2>Resultados (ordenados por score de riesgo desc.)</h2>
-  <table border="1" cellpadding="6">
-    <tr>
-      <th>#</th>
-      <th>Importe</th>
-      <th>Método de pago</th>
-      <th>Dirección de envío</th>
-      <th>Score riesgo</th>
-      <th>Explicabilidad</th>
-    </tr>
-    {% for r in resultados %}
-    <tr>
-      <td>{{ forloop.counter }}</td>
-      <td>{{ r.importe }}</td>
-      <td>{{ r.metodo_pago }}</td>
-      <td>{{ r.direccion_envio }}</td>
-      <td>{{ r.score_riesgo }}</td>
-      <td><pre style="margin:0">{{ r.explicabilidad|safe }}</pre></td>
-    </tr>
-    {% endfor %}
-  </table>
-  {% endif %}
-
-  <br>
-  <a href="{% url 'auditoria_front' %}">Auditoría Individual</a> |
-  <a href="{% url 'incidentes_listado' %}">Incidentes</a> |
-  <a href="{% url 'dashboard' %}">Dashboard</a>
+{% if resultados %}
+<div class="card shadow-sm">
+  <div class="card-header bg-success text-white"><h5>Resultados (ordenados por score desc.)</h5></div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-striped table-hover align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>#</th>
+            <th>Importe</th>
+            <th>Método de pago</th>
+            <th>Dirección de envío</th>
+            <th>Score riesgo</th>
+            <th>Explicabilidad</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in resultados %}
+          <tr>
+            <td>{{ forloop.counter }}</td>
+            <td>{{ r.importe }}</td>
+            <td>{{ r.metodo_pago }}</td>
+            <td>{{ r.direccion_envio }}</td>
+            <td>
+              <span class="badge
+                {% if r.score_riesgo|floatformat >= 80 %} badge-risk-high
+                {% elif r.score_riesgo|floatformat >= 50 %} badge-risk-med
+                {% else %} badge-risk-low
+                {% endif %}">
+                {{ r.score_riesgo }}
+              </span>
+            </td>
+            <td>
+              <details>
+                <summary>Ver</summary>
+                <pre class="mb-0">{{ r.explicabilidad|safe }}</pre>
+              </details>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
 {% endblock %}
