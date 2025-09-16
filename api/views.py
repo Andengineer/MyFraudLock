@@ -136,76 +136,93 @@ def incidente_detalle_view(request, incidente_id):
     return render(request, "api/incidente_detalle.html", {"incidente": incidente})
 @csrf_exempt
 def auditoria_view(request):
-    resultado = None
-
+    contexto = {"active_tab": "individual"}
     if request.method == "POST":
+        # tu lógica actual de auditoría 1 a 1…
         importe = request.POST.get("importe")
         metodo_pago = request.POST.get("metodo_pago")
         direccion_envio = request.POST.get("direccion_envio")
 
-        # Ejecutar predicción simulada
+        # Llama a tu función predictora mock/real
         score, explicabilidad = predict_fraud({
             "importe": importe,
             "metodo_pago": metodo_pago,
             "direccion_envio": direccion_envio
         })
 
-        resultado = {
-            "score_riesgo": score,
-            "explicabilidad": explicabilidad,
-        }
-
-    return render(request, "api/auditoria.html", {"resultado": resultado})
+        contexto.update({
+            "resultado": {
+                "score_riesgo": score,
+                "explicabilidad": explicabilidad,
+            },
+            "active_tab": "individual"
+        })
+        messages.success(request, "Auditoría individual procesada.")
+    return render(request, "api/auditoria.html", contexto)
 
 def auditoria_lote_view(request):
-    resultados = []
+    contexto = {"active_tab": "lote"}  # <- en minúscula para que el tab se pinte bien
 
-    if request.method == "POST" and request.FILES.get("archivo"):
-        archivo = request.FILES["archivo"]
-
-        # Validación básica
-        if not archivo.name.lower().endswith(".csv"):
-            messages.error(request, "Por favor sube un archivo CSV.")
-            return render(request, "api/auditoria_lote.html", {"resultados": resultados})
+    if request.method == "POST":
+        archivo = request.FILES.get("archivo")
+        if not archivo:
+            messages.error(request, "Debes subir un archivo CSV válido.")
+            return render(request, "api/auditoria.html", contexto)
 
         try:
-            # Decodificar a texto y leer CSV
-            wrapper = io.TextIOWrapper(archivo.file, encoding="utf-8")
-            reader = csv.DictReader(wrapper)
+            # Leer CSV
+            data = archivo.read().decode("utf-8", errors="ignore")
+            f = io.StringIO(data)
+            reader = csv.DictReader(f)
 
-            # Validar columnas requeridas
-            columnas_req = {"importe", "metodo_pago", "direccion_envio"}
-            if not columnas_req.issubset(set([c.strip() for c in reader.fieldnames or []])):
+            # Validar cabeceras
+            expected = {"importe", "metodo_pago", "direccion_envio"}
+            headers = set([h.strip() for h in (reader.fieldnames or [])])
+            if not expected.issubset(headers):
                 messages.error(
                     request,
-                    "El CSV debe tener las columnas: importe, metodo_pago, direccion_envio."
+                    "Cabeceras inválidas. Se esperan: importe, metodo_pago, direccion_envio"
                 )
-                return render(request, "api/auditoria_lote.html", {"resultados": resultados})
+                return render(request, "api/auditoria.html", contexto)
 
-            # Procesar filas
+            resultados = []
             for row in reader:
-                datos = {
-                    "importe": row.get("importe"),
-                    "metodo_pago": row.get("metodo_pago"),
-                    "direccion_envio": row.get("direccion_envio"),
-                }
-                score, explicabilidad = predict_fraud(datos)
+                try:
+                    importe = float(str(row.get("importe", "")).replace(",", "."))
+                except ValueError:
+                    # Si el importe es inválido, salta la fila
+                    continue
+
+                metodo_pago = (row.get("metodo_pago") or "").strip()
+                direccion_envio = (row.get("direccion_envio") or "").strip()
+
+                score, explicabilidad = predict_fraud({
+                    "importe": importe,
+                    "metodo_pago": metodo_pago,
+                    "direccion_envio": direccion_envio,
+                })
+
                 resultados.append({
-                    "importe": datos["importe"],
-                    "metodo_pago": datos["metodo_pago"],
-                    "direccion_envio": datos["direccion_envio"],
+                    "importe": importe,
+                    "metodo_pago": metodo_pago,
+                    "direccion_envio": direccion_envio,
                     "score_riesgo": score,
                     "explicabilidad": explicabilidad,
                 })
 
-            # Ordenar de mayor a menor score para priorizar revisión
+            # Ordenar desc por score
             resultados.sort(key=lambda x: x["score_riesgo"], reverse=True)
-            messages.success(request, f"Se procesaron {len(resultados)} transacciones (no se guardó en BD).")
+
+            contexto.update({
+                "resultados": resultados,
+                "active_tab": "lote",
+            })
+            messages.success(request, f"Auditoría por lote procesada. Filas válidas: {len(resultados)}")
 
         except Exception as e:
-            messages.error(request, f"Error al procesar el CSV: {e}")
+            messages.error(request, f"Error procesando el CSV: {e}")
 
-    return render(request, "api/auditoria_lote.html", {"resultados": resultados})
+    return render(request, "api/auditoria.html", contexto)
 
 def configuracion_front(request):
     config, _ = Configuracion.objects.get_or_create(id=1)

@@ -7,51 +7,122 @@
     <h1 class="h3 mb-1">Listado de Incidentes</h1>
     <div class="breadcrumbs"><a href="{% url 'inicio' %}">Inicio</a> / Incidentes</div>
   </div>
-  <div class="d-flex gap-2">
-    <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-icon" data-back>
-      <i class="bi bi-arrow-left"></i> Volver
-    </a>
+  <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-icon" data-back>
+    <i class="bi bi-arrow-left"></i> Volver
+  </a>
+</div>
+
+<!-- Toolbar -->
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <form class="row g-2" onsubmit="event.preventDefault()">
+      <div class="col-md-6">
+        <div class="input-group">
+          <span class="input-group-text"><i class="bi bi-search"></i></span>
+          <input id="buscarInput" type="text" class="form-control" placeholder="Buscar por ID, estado, fecha…">
+        </div>
+      </div>
+      <div class="col-md-3">
+        <select id="estadoFilter" class="form-select">
+          <option value="">Estado: Todos</option>
+          <option value="pendiente">Pendiente</option>
+          <option value="fraude confirmado">Fraude confirmado</option>
+          <option value="falso positivo">Falso positivo</option>
+        </select>
+      </div>
+      <div class="col-md-3 text-md-end">
+        <button type="button" class="btn btn-outline-secondary" id="limpiarBtn">Limpiar</button>
+      </div>
+    </form>
   </div>
 </div>
 
-<div class="table-responsive">
-  <table class="table table-bordered table-hover align-middle">
-    <thead class="table-dark">
-      <tr>
-        <th>ID</th>
-        <th>Score Riesgo</th>
-        <th>Fecha</th>
-        <th>Estado</th>
-        <th>Acciones</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for incidente in incidentes %}
-      <tr>
-        <td>{{ incidente.id_incidente }}</td>
-        <td>{{ incidente.score_riesgo }}</td>
-        <td>{{ incidente.fecha }}</td>
-        <td>
-          {% if incidente.estado == "Pendiente" %}
-            <span class="badge bg-warning text-dark">{{ incidente.estado }}</span>
-          {% elif incidente.estado == "Falso positivo" %}
-            <span class="badge bg-success">{{ incidente.estado }}</span>
-          {% elif incidente.estado == "Fraude confirmado" %}
-            <span class="badge bg-danger">{{ incidente.estado }}</span>
-          {% else %}
-            <span class="badge bg-secondary">{{ incidente.estado }}</span>
-          {% endif %}
-        </td>
-        <td>
-          <a class="btn btn-sm btn-primary btn-icon" href="/api/incidentes/{{ incidente.id_incidente }}/detalle/">
-            <i class="bi bi-pencil-square"></i> Gestionar
-          </a>
-        </td>
-      </tr>
-      {% empty %}
-      <tr><td colspan="5" class="text-center text-muted">No hay incidentes registrados.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<!-- Tabla -->
+<div class="card shadow-sm">
+  <div class="card-header text-white" style="background:#d00000">
+    <h5 class="mb-0">Incidentes</h5>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table id="tablaIncidentes" class="table table-hover align-middle mb-0">
+        <thead class="table-light position-sticky top-0" style="z-index:1">
+          <tr>
+            <th class="text-nowrap">ID</th>
+            <th class="text-nowrap">Score Riesgo</th>
+            <th class="text-nowrap">Fecha</th>
+            <th class="text-nowrap">Estado</th>
+            <th class="text-nowrap">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for incidente in incidentes %}
+          <tr data-estado="{{ incidente.estado|lower }}">
+            <td class="fw-semibold">#{{ incidente.id_incidente }}</td>
+            <td>
+              <span class="badge
+                {% if incidente.score_riesgo >= 70 %} badge-risk-high
+                {% elif incidente.score_riesgo >= 40 %} badge-risk-med text-dark
+                {% else %} badge-risk-low
+                {% endif %}">
+                {{ incidente.score_riesgo }}%
+              </span>
+            </td>
+            <td>{{ incidente.fecha|date:"d/m/Y H:i" }}</td>
+            <td>
+              {% if incidente.estado == "Pendiente" %}
+                <span class="badge bg-warning text-dark">{{ incidente.estado }}</span>
+              {% elif incidente.estado == "Falso positivo" %}
+                <span class="badge bg-success">{{ incidente.estado }}</span>
+              {% elif incidente.estado == "Fraude confirmado" %}
+                <span class="badge bg-danger">{{ incidente.estado }}</span>
+              {% else %}
+                <span class="badge bg-secondary">{{ incidente.estado }}</span>
+              {% endif %}
+            </td>
+            <td>
+              <a class="btn btn-sm btn-primary btn-icon"
+                 href="/api/incidentes/{{ incidente.id_incidente }}/detalle/">
+                <i class="bi bi-pencil-square"></i> Gestionar
+              </a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="5" class="text-center text-muted py-4">
+              No hay incidentes registrados.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>
+
+<script>
+  // Filtro cliente: búsqueda + estado
+  const buscarInput = document.getElementById('buscarInput');
+  const estadoFilter = document.getElementById('estadoFilter');
+  const limpiarBtn   = document.getElementById('limpiarBtn');
+  const filas = () => document.querySelectorAll('#tablaIncidentes tbody tr');
+
+  function filtrar() {
+    const q = (buscarInput.value || '').toLowerCase().trim();
+    const est = estadoFilter.value; // ya viene en minúscula
+    filas().forEach(tr => {
+      const txt = tr.innerText.toLowerCase();
+      const matchQ = !q || txt.includes(q);
+      const matchE = !est || tr.dataset.estado === est;
+      tr.classList.toggle('d-none', !(matchQ && matchE));
+    });
+  }
+
+  buscarInput.addEventListener('input', filtrar);
+  estadoFilter.addEventListener('change', filtrar);
+  limpiarBtn.addEventListener('click', () => {
+    buscarInput.value = '';
+    estadoFilter.value = '';
+    filtrar();
+  });
+</script>
 {% endblock %}
