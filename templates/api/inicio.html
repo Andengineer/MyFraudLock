@@ -1,0 +1,40 @@
+{% extends "api/base.html" %}
+{% block title %}Inicio{% endblock %}
+
+{% block content %}
+<div class="text-center mt-5">
+  <h1 class="display-4">Bienvenido a FraudLock</h1>
+  <p class="lead">Sistema antifraude para detección y gestión de incidentes en e-commerce.</p>
+  <hr class="my-4">
+
+  <div class="row mt-4">
+    <div class="col-md-4">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title">Dashboard</h5>
+          <p class="card-text">Resumen de incidentes y métricas clave.</p>
+          <a href="{% url 'dashboard' %}" class="btn btn-primary">Ir al Dashboard</a>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title">Incidentes</h5>
+          <p class="card-text">Listado completo de incidentes detectados.</p>
+          <a href="{% url 'incidentes_listado' %}" class="btn btn-primary">Ver Incidentes</a>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title">Auditoría</h5>
+          <p class="card-text">Audita transacciones individuales o por lote.</p>
+          <a href="{% url 'auditoria_front' %}" class="btn btn-primary">Auditar ahora</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

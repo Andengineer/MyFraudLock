@@ -230,3 +230,9 @@ def configuracion_front(request):
         "api/configuracion.html",
         {"config": config, "usuarios": Usuario.objects.all()}
     )
+def inicio_view(request):
+    return render(request, "api/inicio.html")
+
+def ayuda_view(request):
+    config, _ = Configuracion.objects.get_or_create(id=1)
+    return render(request, "api/ayuda.html", {"config": config})

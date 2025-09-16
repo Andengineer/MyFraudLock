@@ -1,0 +1,31 @@
+{% extends "api/base.html" %}
+{% block title %}Información y Ayuda{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h1>Información y Ayuda</h1>
+  <p class="lead">Aquí encontrarás orientación para usar el sistema FraudLock.</p>
+  <hr>
+
+  <h3>Estados de los incidentes</h3>
+  <ul>
+    <li><span class="badge bg-warning text-dark">Pendiente</span> → El incidente aún no ha sido revisado.</li>
+    <li><span class="badge bg-danger">Fraude confirmado</span> → El incidente ha sido validado como fraude.</li>
+    <li><span class="badge bg-success">Falso positivo</span> → El incidente fue descartado, la transacción era legítima.</li>
+  </ul>
+
+  <h3>Interpretación del Score de Riesgo</h3>
+  <p>El sistema calcula un <strong>score de riesgo (0-100)</strong>. Mientras mayor el score, mayor la probabilidad de fraude. 
+     El umbral actual es <strong>{{ config.umbral_score }}%</strong>. Las transacciones iguales o superiores a este valor se marcan como incidentes.</p>
+
+  <h3>Auditoría</h3>
+  <p>Puedes auditar:</p>
+  <ul>
+    <li><strong>Individual</strong>: ingresando importe, método de pago y dirección de envío.</li>
+    <li><strong>Por lote</strong>: subiendo un archivo CSV con las columnas <code>importe, metodo_pago, direccion_envio</code>.</li>
+  </ul>
+
+  <h3>Soporte</h3>
+  <p>Para consultas adicionales, contacta al equipo de soporte.</p>
+</div>
+{% endblock %}
