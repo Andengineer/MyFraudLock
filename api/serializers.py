@@ -2,6 +2,7 @@ from rest_framework import serializers
 from .models import Usuario, Transaccion, Incidente, Configuracion
 
 class UsuarioSerializer(serializers.ModelSerializer):
+    rol = serializers.ChoiceField(choices=Usuario.Roles.choices, required=False)
     class Meta:
         model = Usuario
         fields = '__all__'
