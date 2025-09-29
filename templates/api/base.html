@@ -78,12 +78,56 @@
             bottom: 1rem;
             z-index: 1080;
         }
+
+        /* Altura del navbar por breakpoint para compensar el contenido */
+        :root {
+            --nav-h: 56px;
+        }
+
+        /* móvil */
+        @media (min-width: 992px) {
+            :root {
+                --nav-h: 64px;
+            }
+        }
+
+        /* desktop */
+
+        /* separa el contenido del navbar fijo */
+        body {
+            padding-top: calc(var(--nav-h) + 16px);
+        }
+
+        /* mejora visual del navbar */
+        .navbar.fixed-top {
+            background: linear-gradient(90deg, #d00000, #a40000);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, .15);
+        }
+
+        /* links del navbar: hover/active más claro */
+        .navbar .nav-link {
+            border-radius: .5rem;
+            transition: background-color .15s ease;
+        }
+
+        .navbar .nav-link:hover,
+        .navbar .nav-link:focus,
+        .navbar .nav-link.active {
+            background-color: rgba(255, 255, 255, .12);
+        }
+
+        /* opcional: marca la marca un poco más grande */
+        .navbar-brand {
+            font-weight: 700;
+            letter-spacing: .3px;
+        }
+
     </style>
 </head>
 <body class="bg-light">
 
 <!-- Navbar -->
-<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top shadow-sm">
     <div class="container-fluid">
         <a class="navbar-brand" href="{% url 'inicio' %}"><i class="bi bi-shield-lock-fill me-1"></i>MyFraudLock</a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
@@ -146,6 +190,16 @@
             history.back();
         }
     });
+    // resaltar el item activo del navbar
+  (function markActiveNav(){
+    const path = window.location.pathname.replace(/\/$/, "");
+    document.querySelectorAll('#mainNav .nav-link').forEach(a=>{
+      const href = (a.getAttribute('href') || "").replace(/\/$/, "");
+      if(href && (href === path || (href !== "" && path.startsWith(href)))){
+        a.classList.add('active');
+      }
+    });
+  })();
 </script>
 </body>
 </html>
