@@ -1,5 +1,6 @@
 {% extends "api/base.html" %}
 {% load static %}
+{% load tz %}
 {% block title %}Detalle de Incidente{% endblock %}
 
 {% block content %}
@@ -16,113 +17,170 @@
         </div>
         <div class="card shadow-lg">
             <!-- Header con color según estado -->
-            <div class="card-header
-              {% if incidente.estado == "Pendiente" %} bg-warning text-dark
-              {% elif incidente.estado == "Falso positivo" %} bg-success text-white
-              {% elif incidente.estado == "Fraude confirmado" %} bg-danger text-white
-              {% else %} bg-secondary text-white
-              {% endif %}">
-                <h4 class="mb-0">Detalle del Incidente #{{ incidente.id_incidente }}</h4>
+            <div class="card-header d-flex justify-content-between align-items-center
+  {% if incidente.estado == 'Pendiente' %} bg-warning-subtle
+  {% elif incidente.estado == 'Falso positivo' %} bg-success-subtle
+  {% elif incidente.estado == 'Fraude confirmado' %} bg-danger-subtle
+  {% else %} bg-secondary-subtle
+  {% endif %}">
+                <div>
+                    <h4 class="mb-0">
+                        Incidente #{{ incidente.id_incidente }}
+                        <span class="badge ms-1
+        {% if incidente.estado == 'Pendiente' %} bg-warning text-dark
+        {% elif incidente.estado == 'Falso positivo' %} bg-success
+        {% elif incidente.estado == 'Fraude confirmado' %} bg-danger
+        {% else %} bg-secondary
+        {% endif %}">
+        {{ incidente.estado }}
+      </span>
+                    </h4>
+                    <small class="text-muted">
+                        {% localtime on %}{{ incidente.fecha|date:"d/M/Y, H:i" }}{% endlocaltime %}
+                    </small>
+                </div>
+
+                <div class="text-end">
+                    <div class="fw-semibold small text-muted">Score de riesgo</div>
+                    <span class="badge fs-6
+      {% if incidente.score_riesgo >= 80 %} bg-danger
+      {% elif incidente.score_riesgo >= 50 %} bg-warning text-dark
+      {% else %} bg-success
+      {% endif %}">
+      {{ incidente.score_riesgo }}%
+    </span>
+                </div>
             </div>
 
+
             <div class="card-body">
-                <!-- Información del incidente -->
-                <h5 class="card-title">Información del incidente</h5>
-                <ul class="list-group mb-3">
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <strong>Estado actual:</strong>
-                        <span class="badge
-                        {% if incidente.estado == 'Pendiente' %} bg-warning text-dark
-                        {% elif incidente.estado == 'Falso positivo' %} bg-success
-                        {% elif incidente.estado == 'Fraude confirmado' %} bg-danger
-                        {% else %} bg-secondary
-                        {% endif %}">
-                        {{ incidente.estado }}
-                        </span>
-                    </li>
-                    <!-- Score de riesgo visual -->
-                    <li class="list-group-item">
-                        <strong>Score de Riesgo:</strong>
-                        <div class="progress mt-2" style="height: 20px;">
-                            <div class="progress-bar
-                              {% if incidente.score_riesgo >= 70 %} bg-danger
-                              {% elif incidente.score_riesgo >= 40 %} bg-warning text-dark
-                              {% else %} bg-success
-                              {% endif %}"
-                                 role="progressbar"
-                                 style="width: {{ incidente.score_riesgo }}%">
-                                {{ incidente.score_riesgo }}%
-                            </div>
-                        </div>
-                    </li>
-                    <li class="list-group-item"><strong>Fecha:</strong> {{ incidente.fecha }}</li>
-                    <li class="list-group-item"><strong>Comentario:</strong> {{ incidente.comentario }}</li>
-                </ul>
+  <div class="row g-4">
+    <!-- Columna izquierda: Info + Transacción + Explicabilidad -->
+    <div class="col-lg-7">
+      <!-- Información del incidente -->
+      <h5 class="card-title">Información del incidente</h5>
+      <ul class="list-group mb-4">
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+          <strong>Estado actual:</strong>
+          <span class="badge
+            {% if incidente.estado == 'Pendiente' %} bg-warning text-dark
+            {% elif incidente.estado == 'Falso positivo' %} bg-success
+            {% elif incidente.estado == 'Fraude confirmado' %} bg-danger
+            {% else %} bg-secondary
+            {% endif %}">{{ incidente.estado }}</span>
+        </li>
 
-                <!-- Transacción asociada -->
-                <h5 class="card-title">Transacción asociada</h5>
-                <ul class="list-group mb-3">
-                    <li class="list-group-item"><strong>ID
-                        Transacción:</strong> {{ incidente.id_transaccion.id_transaccion }}</li>
-                    <li class="list-group-item"><strong>Importe:</strong> S/ {{ incidente.id_transaccion.importe }}</li>
-                    <li class="list-group-item"><strong>Método de
-                        pago:</strong> {{ incidente.id_transaccion.metodo_pago }}</li>
-                    <li class="list-group-item"><strong>Dirección de
-                        envío:</strong> {{ incidente.id_transaccion.direccion_envio }}</li>
-                </ul>
+        <!-- Score con barra -->
+        <li class="list-group-item">
+          <div class="d-flex justify-content-between"><strong>Score de Riesgo:</strong>
+            <span class="small text-muted">{{ incidente.score_riesgo }}%</span>
+          </div>
+          <div class="progress mt-2" style="height:18px;">
+            <div class="progress-bar progress-bar-striped
+              {% if incidente.score_riesgo >= 80 %} bg-danger
+              {% elif incidente.score_riesgo >= 50 %} bg-warning text-dark
+              {% else %} bg-success
+              {% endif %}" role="progressbar" style="width: {{ incidente.score_riesgo }}%;"></div>
+          </div>
+        </li>
 
-                <!-- Explicabilidad -->
-                <h5 class="card-title">Explicabilidad</h5>
-                <div class="alert alert-info">
-                    <pre class="mb-0">{{ incidente.explicabilidad|safe }}</pre>
-                </div>
+        <li class="list-group-item">
+          <strong>Fecha:</strong>
+          {% localtime on %}{{ incidente.fecha|date:"d/M/Y, H:i" }}{% endlocaltime %}
+        </li>
+        <li class="list-group-item"><strong>Comentario:</strong> {{ incidente.comentario }}</li>
+      </ul>
 
-                <!-- Formulario de gestión -->
-                <h5 class="card-title">Gestionar</h5>
-                <form method="post" class="mb-3" id="gestionForm">
-                    {% csrf_token %}
-                    <div class="mb-3">
-                        <label for="estado" class="form-label">Cambiar estado:</label>
-                        <select name="estado" id="estado" class="form-select">
-                            <option value="Fraude confirmado">Fraude confirmado</option>
-                            <option value="Falso positivo">Falso positivo</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="comentario" class="form-label">Comentario:</label>
-                        <textarea id="comentario" name="comentario" rows="4"
-                                  class="form-control">{{ incidente.comentario }}</textarea>
-                    </div>
-                    <!-- Botón abre modal -->
-                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#confirmModal">
-                        Guardar
-                    </button>
-                    <a href="{% url 'incidentes_listado' %}" class="btn btn-secondary">Volver</a>
-                </form>
+      <!-- Transacción asociada -->
+      <h5 class="card-title">Transacción asociada</h5>
+      <ul class="list-group mb-4">
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+          <div><strong>ID Transacción:</strong> <span id="txId">{{ incidente.id_transaccion.id_transaccion }}</span></div>
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="copyTx">
+            <i class="bi bi-clipboard"></i> Copiar
+          </button>
+        </li>
+        <li class="list-group-item"><strong>Importe:</strong> S/ {{ incidente.id_transaccion.importe }}</li>
+        <li class="list-group-item"><strong>Categoría:</strong> {{ incidente.id_transaccion.category }}</li>
+        <li class="list-group-item"><strong>Estado/Distrito:</strong> {{ incidente.id_transaccion.state }}</li>
+        <li class="list-group-item"><strong>Género:</strong> {{ incidente.id_transaccion.gender|upper }}</li>
+        <li class="list-group-item"><strong>Edad:</strong> {{ incidente.id_transaccion.age }}</li>
+        <li class="list-group-item"><strong>Población de la ciudad:</strong> {{ incidente.id_transaccion.city_pop }}</li>
+      </ul>
 
-                <!-- Modal de confirmación -->
-                <div class="modal fade" id="confirmModal" tabindex="-1" aria-hidden="true">
-                    <div class="modal-dialog modal-dialog-centered">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title">Confirmar acción</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                            </div>
-                            <div class="modal-body">
-                                <p><strong>Estado seleccionado:</strong>
-                                    <span id="previewEstado" class="badge bg-secondary">-</span>
-                                </p>
-                                <p><strong>Comentario:</strong></p>
-                                <p id="previewComentario" class="border rounded p-2 bg-light">—</p>
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar
-                                </button>
-                                <button type="submit" form="gestionForm" class="btn btn-primary">Confirmar</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+      <!-- Explicabilidad -->
+      <h5 class="card-title">Explicabilidad</h5>
+      <div class="alert alert-info">
+        <details>
+          <summary class="mb-2">Ver detalle</summary>
+          <pre id="expBox" class="mb-0">{{ incidente.explicabilidad|safe }}</pre>
+        </details>
+      </div>
+    </div>
+
+    <!-- Columna derecha: Gestionar (sticky) -->
+    <div class="col-lg-5">
+      <div class="card shadow-sm sticky-side">
+        <div class="card-header bg-light">
+          <h6 class="mb-0">Gestionar</h6>
+        </div>
+        <div class="card-body">
+          <form method="post" class="mb-3" id="gestionForm">
+            {% csrf_token %}
+            <div class="mb-3">
+              <label for="estado" class="form-label">Cambiar estado:</label>
+              <select name="estado" id="estado" class="form-select">
+                <option value="Fraude confirmado">Fraude confirmado</option>
+                <option value="Falso positivo">Falso positivo</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label for="comentario" class="form-label">Comentario:</label>
+              <textarea id="comentario" name="comentario" rows="4" class="form-control">{{ incidente.comentario }}</textarea>
+            </div>
+
+            <!-- Acciones -->
+            <div class="d-grid gap-2">
+              <!-- Abre modal -->
+              <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#confirmModal">
+                Guardar
+              </button>
+              <a href="{% url 'incidentes_listado' %}" class="btn btn-outline-secondary">Volver</a>
+            </div>
+          </form>
+
+
+
+      {% if messages %}
+      <div class="alert alert-success mt-3">
+        {% for message in messages %}<p class="mb-0">{{ message }}</p>{% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Modal de confirmación (igual que lo tienes) -->
+  <div class="modal fade" id="confirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Confirmar acción</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p><strong>Estado seleccionado:</strong> <span id="previewEstado" class="badge bg-secondary">-</span></p>
+          <p class="mb-1"><strong>Comentario:</strong></p>
+          <p id="previewComentario" class="border rounded p-2 bg-light">—</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" form="gestionForm" class="btn btn-primary">Confirmar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 
 
                 <!-- Mensajes de éxito -->
@@ -189,5 +247,28 @@
             const com = comentario.value.trim();
             previewComentario.textContent = com || "—";
         });
+        // Copiar ID de transacción
+        const btnCopy = document.getElementById('copyTx');
+        if (btnCopy) {
+            btnCopy.addEventListener('click', () => {
+                const t = document.getElementById('txId')?.innerText || '';
+                navigator.clipboard.writeText(t).then(() => {
+                    btnCopy.innerHTML = '<i class="bi bi-check-lg"></i> Copiado';
+                    setTimeout(() => btnCopy.innerHTML = '<i class="bi bi-clipboard"></i> Copiar', 1600);
+                });
+            });
+        }
+
+        // Pretty JSON para explicabilidad (si viene como string JSON)
+        (function prettyExplain() {
+            const el = document.getElementById('expBox');
+            if (!el) return;
+            try {
+                const raw = el.textContent.trim();
+                const obj = JSON.parse(raw);
+                el.textContent = JSON.stringify(obj, null, 2);
+            } catch (_) { /* queda tal cual si no es JSON válido */
+            }
+        })();
     </script>
 {% endblock %}

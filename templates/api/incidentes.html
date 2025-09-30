@@ -1,4 +1,5 @@
 {% extends "api/base.html" %}
+{% load tz %}
 {% block title %}Incidentes{% endblock %}
 
 {% block content %}
@@ -20,7 +21,8 @@
         <label class="form-label mb-1">Buscar</label>
         <div class="input-group">
           <span class="input-group-text"><i class="bi bi-search"></i></span>
-          <input id="buscarInput" type="text" class="form-control" placeholder="ID, estado, comentario, dirección…">
+          <input id="buscarInput" type="text" class="form-control"
+                 placeholder="ID, estado, comentario, categoría…">
         </div>
       </div>
       <div class="col-sm-6 col-lg-2">
@@ -62,7 +64,7 @@
         <thead class="table-light position-sticky top-0" style="z-index:1">
           <tr>
             <th class="text-nowrap sortable" data-sort="id">ID <i class="bi bi-arrow-down-up"></i></th>
-            <th class="text-nowrap sortable" data-sort="score">Score Riesgo <i class="bi bi-arrow-down-up"></i></th>
+            <th class="text-nowrap sortable" data-sort="score">Score <i class="bi bi-arrow-down-up"></i></th>
             <th class="text-nowrap sortable" data-sort="fecha">Fecha <i class="bi bi-arrow-down-up"></i></th>
             <th class="text-nowrap">Estado</th>
             <th class="text-nowrap">Acciones</th>
@@ -75,25 +77,34 @@
             data-id="{{ incidente.id_incidente }}"
             data-score="{{ incidente.score_riesgo }}"
             data-fecha="{{ incidente.fecha|date:'Y-m-d' }}"
+            class="{% if incidente.estado == 'Pendiente' and incidente.score_riesgo >= 70 %}row-alert{% endif %}"
           >
             <td class="fw-semibold">#{{ incidente.id_incidente }}</td>
             <td>
               <span class="badge
-                {% if incidente.score_riesgo >= 70 %} badge-risk-high
-                {% elif incidente.score_riesgo >= 40 %} badge-risk-med text-dark
+                {% if incidente.score_riesgo >= 80 %} badge-risk-high
+                {% elif incidente.score_riesgo >= 50 %} badge-risk-med text-dark
                 {% else %} badge-risk-low
                 {% endif %}">
                 {{ incidente.score_riesgo }}%
               </span>
             </td>
-            <td>{{ incidente.fecha|date:"d/m/Y H:i" }}</td>
             <td>
-              {% if incidente.estado == "Pendiente" %}
-                <span class="badge bg-warning text-dark">{{ incidente.estado }}</span>
+              {% localtime on %}{{ incidente.fecha|date:"d/M/Y H:i" }}{% endlocaltime %}
+            </td>
+            <td>
+              {% if incidente.estado == "Fraude confirmado" %}
+                <span class="badge status-badge status-badge-fraud">
+                  <i class="bi bi-shield-exclamation me-1"></i>Fraude confirmado
+                </span>
               {% elif incidente.estado == "Falso positivo" %}
-                <span class="badge bg-success">{{ incidente.estado }}</span>
-              {% elif incidente.estado == "Fraude confirmado" %}
-                <span class="badge bg-danger">{{ incidente.estado }}</span>
+                <span class="badge status-badge status-badge-ok">
+                  <i class="bi bi-patch-check me-1"></i>Falso positivo
+                </span>
+              {% elif incidente.estado == "Pendiente" %}
+                <span class="badge status-badge status-badge-pending">
+                  <i class="bi bi-hourglass-split me-1"></i>Pendiente
+                </span>
               {% else %}
                 <span class="badge bg-secondary">{{ incidente.estado }}</span>
               {% endif %}
@@ -136,8 +147,25 @@
 </div>
 
 <style>
+  :root{ --brand:#d00000; }
+
   th.sortable{ cursor:pointer; user-select:none; }
-  th.sortable.active{ color:#d00000; }
+  th.sortable.active{ color:var(--brand); }
+
+  /* Estado (pills) */
+  .status-badge{ padding:.35rem .6rem; border-radius:999px; font-weight:600; }
+  .status-badge-fraud{ background:var(--brand); color:#fff; }
+  .status-badge-ok{ background:#198754; color:#fff; }
+  .status-badge-pending{ background:#ffc107; color:#212529; }
+
+  /* Riesgo */
+  .badge-risk-high{ background:#dc3545; }
+  .badge-risk-med{ background:#ffc107; }
+  .badge-risk-low{ background:#198754; }
+
+  /* Fila resaltada: pendiente + alto riesgo */
+  .row-alert{ background:#fff1f2; }           /* rosado suave */
+  .row-alert:hover{ background:#ffe5e8 !important; }
 </style>
 
 <script>
@@ -272,7 +300,7 @@
   // Exportar CSV (de filas filtradas, no sólo la página actual)
   exportBtn.addEventListener('click', ()=>{
     const rows = applyFilters();
-    const headers = ['ID','Score Riesgo','Fecha','Estado'];
+    const headers = ['ID','Score','Fecha','Estado'];
     const lines = [headers.join(',')];
     rows.forEach(tr=>{
       const id = tr.dataset.id;
