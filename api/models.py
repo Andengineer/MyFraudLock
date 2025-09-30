@@ -27,13 +27,20 @@ class Usuario(models.Model):
 
 class Transaccion(models.Model):
     id_transaccion = models.AutoField(primary_key=True)
-    importe = models.DecimalField(max_digits=10, decimal_places=3, null=False)
-    metodo_pago = models.CharField(max_length=50, null=False)
-    direccion_envio = models.CharField(max_length=100, null=False)
-    fecha = models.DateTimeField(auto_now_add=True)
+
+    # numéricas base + derivables desde fecha
+    importe  = models.DecimalField(max_digits=12, decimal_places=2)  # se mapea a 'amt'
+    fecha    = models.DateTimeField(auto_now_add=True)
+
+    # features del modelo
+    category = models.CharField(max_length=32)
+    state    = models.CharField(max_length=32)
+    gender   = models.CharField(max_length=1)   # 'm' / 'f'
+    age      = models.PositiveSmallIntegerField()
+    city_pop = models.PositiveIntegerField()
 
     def __str__(self):
-        return f"Transacción {self.id_transaccion} - {self.metodo_pago} - {self.importe}"
+        return f"Tx #{self.id_transaccion}"
 
 
 class Incidente(models.Model):

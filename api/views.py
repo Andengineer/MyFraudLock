@@ -20,7 +20,8 @@ class TransaccionViewSet(viewsets.ModelViewSet):
     queryset = Transaccion.objects.all()
     serializer_class = TransaccionSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['metodo_pago']
+    # ⬇️ ahora filtramos por los campos del modelo
+    filterset_fields = ['category', 'state', 'gender']
 
     def create(self, request, *args, **kwargs):
         # Guardamos la transacción
@@ -28,14 +29,15 @@ class TransaccionViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         transaccion = serializer.save()
 
-        # Ejecutar predicción
-        score, explicabilidad = predict_fraud(serializer.data)
+        # Ejecutar predicción con los campos del modelo
+        # (ml_utils.predict_fraud deriva amt_log1p, hour, weekday, month, is_weekend)
+        score, explicabilidad = predict_fraud(transaccion)
 
-        # Obtener umbral dinámico (si no existe, se crea con 70)
+        # Umbral dinámico
         config, _ = Configuracion.objects.get_or_create(id=1, defaults={"umbral_score": 70})
         umbral = config.umbral_score
 
-        # Evaluar score contra umbral
+        # Crear incidente si supera el umbral
         if score >= umbral:
             Incidente.objects.create(
                 id_transaccion=transaccion,
@@ -138,31 +140,31 @@ def incidente_detalle_view(request, incidente_id):
 def auditoria_view(request):
     contexto = {"active_tab": "individual"}
     if request.method == "POST":
-        # tu lógica actual de auditoría 1 a 1…
-        importe = request.POST.get("importe")
-        metodo_pago = request.POST.get("metodo_pago")
-        direccion_envio = request.POST.get("direccion_envio")
+        try:
+            importe = float(request.POST.get("importe") or 0)
+        except ValueError:
+            messages.error(request, "Importe inválido.")
+            return render(request, "api/auditoria.html", contexto)
 
-        # Llama a tu función predictora mock/real
-        score, explicabilidad = predict_fraud({
+        payload = {
             "importe": importe,
-            "metodo_pago": metodo_pago,
-            "direccion_envio": direccion_envio
-        })
+            "category": (request.POST.get("category") or "").strip(),
+            "state":    (request.POST.get("state") or "").strip(),
+            "gender":   (request.POST.get("gender") or "").strip().lower(),
+            "age":      int(request.POST.get("age") or 0),
+            "city_pop": int(request.POST.get("city_pop") or 0),
+            # 'fecha' no es necesario: se deriva 'hour/weekday/month/is_weekend' internamente si no viene
+        }
 
+        score, explicabilidad = predict_fraud(payload)
         contexto.update({
-            "resultado": {
-                "score_riesgo": score,
-                "explicabilidad": explicabilidad,
-            },
+            "resultado": {"score_riesgo": score, "explicabilidad": explicabilidad},
             "active_tab": "individual"
         })
         messages.success(request, "Auditoría individual procesada.")
     return render(request, "api/auditoria.html", contexto)
-
 def auditoria_lote_view(request):
-    contexto = {"active_tab": "lote"}  # <- en minúscula para que el tab se pinte bien
-
+    contexto = {"active_tab": "lote"}
     if request.method == "POST":
         archivo = request.FILES.get("archivo")
         if not archivo:
@@ -170,59 +172,49 @@ def auditoria_lote_view(request):
             return render(request, "api/auditoria.html", contexto)
 
         try:
-            # Leer CSV
             data = archivo.read().decode("utf-8", errors="ignore")
             f = io.StringIO(data)
             reader = csv.DictReader(f)
 
-            # Validar cabeceras
-            expected = {"importe", "metodo_pago", "direccion_envio"}
+            expected = {"importe","category","state","gender","age","city_pop"}
             headers = set([h.strip() for h in (reader.fieldnames or [])])
             if not expected.issubset(headers):
-                messages.error(
-                    request,
-                    "Cabeceras inválidas. Se esperan: importe, metodo_pago, direccion_envio"
-                )
+                messages.error(request, "Cabeceras inválidas. Se esperan: importe,category,state,gender,age,city_pop")
                 return render(request, "api/auditoria.html", contexto)
 
             resultados = []
             for row in reader:
                 try:
-                    importe = float(str(row.get("importe", "")).replace(",", "."))
+                    importe = float(str(row.get("importe","")).replace(",", "."))
+                    age = int(row.get("age") or 0)
+                    city_pop = int(row.get("city_pop") or 0)
                 except ValueError:
-                    # Si el importe es inválido, salta la fila
                     continue
 
-                metodo_pago = (row.get("metodo_pago") or "").strip()
-                direccion_envio = (row.get("direccion_envio") or "").strip()
-
-                score, explicabilidad = predict_fraud({
+                payload = {
                     "importe": importe,
-                    "metodo_pago": metodo_pago,
-                    "direccion_envio": direccion_envio,
-                })
+                    "category": (row.get("category") or "").strip(),
+                    "state":    (row.get("state") or "").strip(),
+                    "gender":   (row.get("gender") or "").strip().lower(),
+                    "age":      age,
+                    "city_pop": city_pop,
+                }
 
+                score, explicabilidad = predict_fraud(payload)
                 resultados.append({
-                    "importe": importe,
-                    "metodo_pago": metodo_pago,
-                    "direccion_envio": direccion_envio,
+                    **payload,
                     "score_riesgo": score,
                     "explicabilidad": explicabilidad,
                 })
 
-            # Ordenar desc por score
             resultados.sort(key=lambda x: x["score_riesgo"], reverse=True)
-
-            contexto.update({
-                "resultados": resultados,
-                "active_tab": "lote",
-            })
+            contexto.update({"resultados": resultados, "active_tab": "lote"})
             messages.success(request, f"Auditoría por lote procesada. Filas válidas: {len(resultados)}")
-
         except Exception as e:
             messages.error(request, f"Error procesando el CSV: {e}")
 
     return render(request, "api/auditoria.html", contexto)
+
 
 def configuracion_front(request):
     config, _ = Configuracion.objects.get_or_create(id=1)

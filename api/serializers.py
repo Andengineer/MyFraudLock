@@ -10,7 +10,11 @@ class UsuarioSerializer(serializers.ModelSerializer):
 class TransaccionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Transaccion
-        fields = '__all__'
+        fields = [
+            "id_transaccion", "importe", "fecha",
+            "category", "state", "gender",
+            "age", "city_pop",
+        ]
 
 class IncidenteSerializer(serializers.ModelSerializer):
     class Meta:
