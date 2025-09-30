@@ -10,6 +10,10 @@ from rest_framework.decorators import action
 from .ml_utils import predict_fraud
 from .serializers import UsuarioSerializer, TransaccionSerializer, IncidenteSerializer, ConfiguracionSerializer
 from .models import Transaccion, Incidente, Usuario, Configuracion
+import json
+from django.db.models.functions import TruncDate
+from django.db.models import Count
+from django.utils import timezone
 
 
 class UsuarioViewSet(viewsets.ModelViewSet):
@@ -100,22 +104,94 @@ class AuditoriaView(APIView):
 class ConfiguracionViewSet(viewsets.ModelViewSet):
     queryset = Configuracion.objects.all()
     serializer_class = ConfiguracionSerializer
+
+
+
 def dashboard_view(request):
-    # Contar incidentes por estado
-    pendientes = Incidente.objects.filter(estado="Pendiente").count()
-    confirmados = Incidente.objects.filter(estado="Fraude confirmado").count()
-    falsos = Incidente.objects.filter(estado="Falso positivo").count()
+    # KPIs
+    pendientes   = Incidente.objects.filter(estado="Pendiente").count()
+    confirmados  = Incidente.objects.filter(estado="Fraude confirmado").count()
+    falsos       = Incidente.objects.filter(estado="Falso positivo").count()
 
-    # Últimos 5 incidentes
-    recientes = Incidente.objects.all().order_by('-fecha')[:5]
+    recientes = Incidente.objects.order_by("-fecha")[:10]
 
-    contexto = {
+    # ---------- Fraude por ciudad (solo confirmados)
+    qs_city = (Incidente.objects
+               .filter(estado="Fraude confirmado")
+               .values("id_transaccion__state")
+               .annotate(n=Count("id_incidente"))
+               .order_by("-n"))
+    labels_city, data_city, otros = [], [], 0
+    for i, r in enumerate(qs_city):
+        name = r["id_transaccion__state"] or "—"
+        if i < 10:
+            labels_city.append(name)
+            data_city.append(r["n"])
+        else:
+            otros += r["n"]
+    if otros:
+        labels_city.append("Otros")
+        data_city.append(otros)
+
+    # ---------- Fraude por categoría (solo confirmados)
+    qs_cat = (Incidente.objects
+              .filter(estado="Fraude confirmado")
+              .values("id_transaccion__category")
+              .annotate(n=Count("id_incidente"))
+              .order_by("-n"))
+    labels_cat = [(r["id_transaccion__category"] or "—") for r in qs_cat]
+    data_cat   = [r["n"] for r in qs_cat]
+
+    # ---------- Distribución de score (buckets)
+    buckets = [(0,20),(20,40),(40,60),(60,80),(80,100)]
+    bucket_labels = ["0–20","20–40","40–60","60–80","80–100"]
+    bucket_counts = []
+    for lo, hi in buckets:
+        if hi < 100:
+            c = Incidente.objects.filter(score_riesgo__gte=lo, score_riesgo__lt=hi).count()
+        else:
+            c = Incidente.objects.filter(score_riesgo__gte=lo, score_riesgo__lte=hi).count()
+        bucket_counts.append(c)
+
+    # ---------- Tendencia últimos 30 días (por estado)
+    tz = timezone.get_current_timezone()
+    since = timezone.now() - timezone.timedelta(days=29)
+    daily = (Incidente.objects.filter(fecha__date__gte=since.date())
+             .annotate(d=TruncDate("fecha", tzinfo=tz))
+             .values("d", "estado")
+             .annotate(n=Count("id_incidente"))
+             .order_by("d"))
+
+    dates = sorted({row["d"] for row in daily})
+    date_labels = [d.strftime("%d/%b") for d in dates]
+    estados = ["Pendiente", "Fraude confirmado", "Falso positivo"]
+    series = {e: [0]*len(dates) for e in estados}
+    index = {d:i for i,d in enumerate(dates)}
+    for row in daily:
+        i = index[row["d"]]
+        series[row["estado"]][i] = row["n"]
+
+    ctx = {
         "pendientes": pendientes,
         "confirmados": confirmados,
         "falsos": falsos,
         "recientes": recientes,
+
+        "labels_city": json.dumps(labels_city),
+        "data_city": json.dumps(data_city),
+
+        "labels_cat": json.dumps(labels_cat),
+        "data_cat": json.dumps(data_cat),
+
+        "bucket_labels": json.dumps(bucket_labels),
+        "bucket_counts": json.dumps(bucket_counts),
+
+        "date_labels": json.dumps(date_labels),
+        "serie_pendiente": json.dumps(series["Pendiente"]),
+        "serie_fraude": json.dumps(series["Fraude confirmado"]),
+        "serie_fp": json.dumps(series["Falso positivo"]),
     }
-    return render(request, "api/dashboard.html", contexto)
+    return render(request, "api/dashboard.html", ctx)
 
 def incidentes_view(request):
     incidentes = Incidente.objects.all().order_by('-fecha')
