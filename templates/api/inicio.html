@@ -2,74 +2,138 @@
 {% block title %}Inicio{% endblock %}
 
 {% block content %}
-    <div class="page-head">
+<!-- HERO -->
+<div class="hero rounded-3 p-4 p-md-5 mb-3 shadow-sm">
+  <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+    <div>
+      <h1 class="mb-1">Bienvenido a MyFraudLock</h1>
+      <p class="text-white-50 mb-0">Monitorea riesgos, audita transacciones y gestiona incidentes en tiempo real.</p>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{% url 'auditoria_front' %}" class="btn btn-light btn-lg">
+        <i class="bi bi-search me-1"></i> Abrir Auditoría
+      </a>
+      <a href="{% url 'incidentes_listado' %}" class="btn btn-outline-light btn-lg">
+        <i class="bi bi-list-task me-1"></i> Ver Incidentes
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- KPIs -->
+<div class="row g-3">
+  <div class="col-md-4">
+    <div class="card kpi-card kpi-pending shadow-sm h-100">
+      <div class="card-body d-flex align-items-center gap-3">
+        <div class="kpi-icon"><i class="bi bi-hourglass-split"></i></div>
         <div>
-            <h1 class="h3 mb-1">Bienvenido a MyFraudLock</h1>
-            <div class="breadcrumbs">Inicio</div>
+          <div class="text-muted small">Pendientes</div>
+          <div class="display-5 fw-semibold kpi-number" data-count="{{ pendientes }}">0</div>
         </div>
+      </div>
     </div>
-
-    <div class="row g-3">
-        <div class="col-md-4">
-            <div class="card text-center shadow-sm">
-                <div class="card-header bg-warning text-dark"><h5>Pendientes</h5></div>
-                <div class="card-body">
-                    <div class="display-6">{{ pendientes }}</div>
-                </div>
-            </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card kpi-card kpi-fraud shadow-sm h-100">
+      <div class="card-body d-flex align-items-center gap-3">
+        <div class="kpi-icon"><i class="bi bi-shield-exclamation"></i></div>
+        <div>
+          <div class="text-muted small">Fraude confirmado</div>
+          <div class="display-5 fw-semibold kpi-number" data-count="{{ confirmados }}">0</div>
         </div>
-        <div class="col-md-4">
-            <div class="card text-center shadow-sm">
-                <div class="card-header text-white" style="background:#d00000"><h5>Fraude confirmado</h5></div>
-                <div class="card-body">
-                    <div class="display-6">{{ confirmados }}</div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card text-center shadow-sm">
-                <div class="card-header bg-success text-white"><h5>Falsos positivos</h5></div>
-                <div class="card-body">
-                    <div class="display-6">{{ falsos }}</div>
-                </div>
-            </div>
-        </div>
+      </div>
     </div>
-
-    <div class="row g-3 mt-2">
-        <div class="col-md-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-body d-flex flex-column">
-                    <h5 class="card-title"><i class="bi bi-speedometer2 me-1"></i>Dashboard</h5>
-                    <p class="text-muted flex-grow-1">Métricas y últimos incidentes.</p>
-                    <a href="{% url 'dashboard' %}" class="btn btn-primary btn-icon"><i
-                            class="bi bi-arrow-right-circle"></i> Ir</a>
-                </div>
-            </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card kpi-card kpi-ok shadow-sm h-100">
+      <div class="card-body d-flex align-items-center gap-3">
+        <div class="kpi-icon"><i class="bi bi-patch-check"></i></div>
+        <div>
+          <div class="text-muted small">Falsos positivos</div>
+          <div class="display-5 fw-semibold kpi-number" data-count="{{ falsos }}">0</div>
         </div>
-        <div class="col-md-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-body d-flex flex-column">
-                    <h5 class="card-title"><i class="bi bi-list-check me-1"></i>Incidentes</h5>
-                    <p class="text-muted flex-grow-1">Listado y gestión de casos.</p>
-                    <a href="{% url 'incidentes_listado' %}" class="btn btn-primary btn-icon"><i
-                            class="bi bi-arrow-right-circle"></i> Ir</a>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-body d-flex flex-column">
-                    <h5 class="card-title"><i class="bi bi-search me-1"></i> Auditoría</h5>
-                    <p class="text-muted flex-grow-1">
-                        Revisa transacciones de forma individual o por lote (CSV) en una sola pantalla.
-                    </p>
-                    <a href="{% url 'auditoria_front' %}" class="btn btn-primary btn-icon align-self-start">
-                        <i class="bi bi-arrow-right-circle"></i> Abrir Auditoría
-                    </a>
-                </div>
-            </div>
-        </div>
-
+      </div>
     </div>
+  </div>
+</div>
+
+<!-- Acciones rápidas -->
+<div class="row g-3 mt-2">
+  <div class="col-md-4">
+    <div class="card quick-card shadow-sm h-100">
+      <div class="card-body d-flex flex-column">
+        <h5 class="card-title"><i class="bi bi-speedometer2 me-2"></i>Dashboard</h5>
+        <p class="text-muted flex-grow-1">Métricas clave y últimos incidentes.</p>
+        <a href="{% url 'dashboard' %}" class="btn btn-primary btn-icon align-self-start">
+          <i class="bi bi-arrow-right-circle"></i> Ir
+        </a>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card quick-card shadow-sm h-100">
+      <div class="card-body d-flex flex-column">
+        <h5 class="card-title"><i class="bi bi-list-check me-2"></i>Incidentes</h5>
+        <p class="text-muted flex-grow-1">Listado y gestión de casos detectados.</p>
+        <a href="{% url 'incidentes_listado' %}" class="btn btn-primary btn-icon align-self-start">
+          <i class="bi bi-arrow-right-circle"></i> Ir
+        </a>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card quick-card shadow-sm h-100">
+      <div class="card-body d-flex flex-column">
+        <h5 class="card-title"><i class="bi bi-search me-2"></i>Auditoría</h5>
+        <p class="text-muted flex-grow-1">Revisa transacciones individuales o por lote (CSV) en una sola pantalla.</p>
+        <a href="{% url 'auditoria_front' %}" class="btn btn-primary btn-icon align-self-start">
+          <i class="bi bi-arrow-right-circle"></i> Abrir Auditoría
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Estilos locales -->
+<style>
+  :root{ --brand:#d00000; }
+
+  /* HERO */
+  .hero{
+    background: linear-gradient(135deg, var(--brand) 0%, #8b0000 100%);
+    color:#fff;
+  }
+
+  /* KPI cards */
+  .kpi-card .kpi-icon{
+    width:54px;height:54px; border-radius:50%;
+    display:grid; place-items:center; font-size:1.25rem; color:#fff;
+  }
+  .kpi-card .kpi-number{ line-height:1; }
+  .kpi-pending .kpi-icon{ background:#ffc107; color:#212529; }
+  .kpi-fraud   .kpi-icon{ background:var(--brand); }
+  .kpi-ok      .kpi-icon{ background:#198754; }
+
+  .quick-card .card-title{ font-weight:600; }
+  .btn-icon i{ margin-right:.35rem; }
+
+  /* Sutilezas de hover */
+  .quick-card{ transition:transform .15s ease, box-shadow .15s ease; }
+  .quick-card:hover{ transform:translateY(-2px); box-shadow:0 .5rem 1rem rgba(0,0,0,.08)!important; }
+</style>
+
+<!-- Mini count-up para KPIs -->
+<script>
+  document.querySelectorAll('.kpi-number').forEach(el=>{
+    const target = Number(el.dataset.count || 0);
+    const dur = 500; // ms
+    const start = performance.now();
+    const tick = now=>{
+      const t = Math.min(1, (now - start)/dur);
+      el.textContent = Math.round(target * t);
+      if(t < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+</script>
 {% endblock %}

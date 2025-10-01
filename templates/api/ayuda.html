@@ -7,30 +7,110 @@
     <h1 class="h3 mb-1">Información y Ayuda</h1>
     <div class="breadcrumbs"><a href="{% url 'inicio' %}">Inicio</a> / Ayuda</div>
   </div>
-  <a href="{% url 'inicio' %}" class="btn btn-outline-secondary btn-icon" data-back><i class="bi bi-arrow-left"></i> Volver</a>
+  <a href="{% url 'inicio' %}" class="btn btn-outline-secondary btn-icon" data-back>
+    <i class="bi bi-arrow-left"></i> Volver
+  </a>
 </div>
 
-<div class="card shadow-sm">
-  <div class="card-body">
-    <h4 class="h5">Estados de los incidentes</h4>
-    <ul>
-      <li><span class="badge bg-warning text-dark">Pendiente</span> → En espera de revisión.</li>
-      <li><span class="badge bg-danger">Fraude confirmado</span> → Validado como fraude.</li>
-      <li><span class="badge bg-success">Falso positivo</span> → La transacción era legítima.</li>
-    </ul>
+<div class="row g-3">
+  <!-- Columna principal -->
+  <div class="col-lg-8">
+    <div class="card shadow-sm">
+      <div class="card-header text-white" style="background:#d00000">
+        <h6 class="mb-0">Guía rápida</h6>
+      </div>
+      <div class="card-body">
+        <h4 class="h5">Estados de los incidentes</h4>
+        <ul class="list-unstyled ms-1 mb-3">
+          <li class="mb-2 d-flex align-items-center gap-2">
+            <span class="legend-dot bg-warning"></span>
+            <span><span class="badge bg-warning text-dark">Pendiente</span> — En espera de revisión.</span>
+          </li>
+          <li class="mb-2 d-flex align-items-center gap-2">
+            <span class="legend-dot bg-danger"></span>
+            <span><span class="badge bg-danger">Fraude confirmado</span> — Validado como fraude.</span>
+          </li>
+          <li class="mb-2 d-flex align-items-center gap-2">
+            <span class="legend-dot bg-success"></span>
+            <span><span class="badge bg-success">Falso positivo</span> — La transacción era legítima.</span>
+          </li>
+        </ul>
 
-    <h4 class="h5 mt-3">Interpretación del Score de Riesgo</h4>
-    <p>El sistema calcula un <strong>score de riesgo (0–100)</strong>. A mayor score, mayor probabilidad de fraude.
-       El umbral actual es <strong>{{ config.umbral_score }}%</strong>. Transacciones con score ≥ umbral generan incidentes.</p>
+        <h4 class="h5 mt-3">Interpretación del Score de Riesgo</h4>
+        <p>El sistema calcula un <strong>score de riesgo (0–100)</strong>. A mayor score, mayor probabilidad de fraude.</p>
+        <p>El <strong>umbral actual</strong> es <strong>{{ config.umbral_score|default:70 }}%</strong>. Las transacciones con score
+          <code>≥</code> umbral generan <em>incidentes</em> automáticamente.</p>
 
-    <h4 class="h5 mt-3">Auditoría</h4>
-    <ul>
-      <li><strong>Individual:</strong> ingresa importe, método de pago y dirección.</li>
-      <li><strong>Por lote:</strong> sube un CSV con <code>importe,metodo_pago,direccion_envio</code>.</li>
-    </ul>
+        <div class="alert alert-info mb-3">
+          <i class="bi bi-lightbulb me-1"></i>
+          El modelo usa características como <code>importe</code>, <code>category</code>, <code>state</code>, <code>gender</code>, <code>age</code>,
+          <code>city_pop</code> y derivados de la fecha (hora, día, etc.). La explicación muestra los factores que más influyen.
+        </div>
 
-    <h4 class="h5 mt-3">Soporte</h4>
-    <p>Para consultas adicionales, contacta al equipo de soporte.</p>
+        <h4 class="h5 mt-3">Auditoría</h4>
+        <ul>
+          <li class="mb-2"><strong>Individual:</strong> ingresa <code>importe</code>, <code>category</code>, <code>state</code>, <code>gender</code>, <code>age</code>, <code>city_pop</code>.</li>
+          <li class="mb-2">
+            <strong>Por lote (CSV):</strong> sube un archivo con cabeceras exactamente:
+            <code>importe,category,state,gender,age,city_pop</code>.
+            <details class="mt-2">
+              <summary class="mb-1">Ver ejemplo CSV</summary>
+              <pre class="bg-light p-2 rounded mb-0">{{"importe,category,state,gender,age,city_pop\n199.9,shopping_pos,lima,m,32,980000\n58.4,food_dining,miraflores,f,26,120000\n899.0,shopping_pos,san_isidro,m,41,380000"}}</pre>
+            </details>
+          </li>
+        </ul>
+
+        <h4 class="h5 mt-3">Buenas prácticas</h4>
+        <ul class="mb-0">
+          <li>Usa <em>categorías</em> y <em>estados</em> existentes en tus datos de entrenamiento.</li>
+          <li>Valores realistas ayudan a obtener scores intermedios (p. ej., <code>city_pop</code> en cientos de miles/millones, edades 18–70).</li>
+          <li>Las fechas se muestran en tu zona horaria; internamente se guardan en UTC.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Columna lateral -->
+  <div class="col-lg-4">
+    <div class="card shadow-sm">
+      <div class="card-header bg-light">
+        <h6 class="mb-0">Accesos útiles</h6>
+      </div>
+      <div class="list-group list-group-flush">
+        <a class="list-group-item list-group-item-action d-flex align-items-center gap-2" href="{% url 'auditoria_front' %}">
+          <i class="bi bi-search"></i> Auditoría (Individual / Lote)
+        </a>
+        <a class="list-group-item list-group-item-action d-flex align-items-center gap-2" href="{% url 'configuracion_front' %}">
+          <i class="bi bi-sliders"></i> Configurar umbral
+        </a>
+        <a class="list-group-item list-group-item-action d-flex align-items-center gap-2" href="{% url 'incidentes_listado' %}">
+          <i class="bi bi-list-task"></i> Ver incidentes
+        </a>
+        <a class="list-group-item list-group-item-action d-flex align-items-center gap-2" href="{% url 'dashboard' %}">
+          <i class="bi bi-speedometer2"></i> Dashboard
+        </a>
+      </div>
+    </div>
+
+    <div class="card shadow-sm mt-3">
+      <div class="card-header bg-light">
+        <h6 class="mb-0">Soporte</h6>
+      </div>
+      <div class="card-body">
+        <p class="mb-2">¿Dudas o incidencias?</p>
+        <ul class="mb-0">
+          <li>Describe el caso (ID de incidente o transacción).</li>
+          <li>Incluye capturas y pasos para reproducir.</li>
+          <li>Adjunta CSV si aplica.</li>
+        </ul>
+      </div>
+    </div>
   </div>
 </div>
+
+<style>
+  .legend-dot{
+    width:.75rem; height:.75rem; border-radius:50%; display:inline-block;
+  }
+</style>
 {% endblock %}

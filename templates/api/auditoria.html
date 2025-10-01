@@ -2,182 +2,234 @@
 {% block title %}Auditoría{% endblock %}
 
 {% block content %}
-<div class="page-head">
-  <div>
-    <h1 class="h3 mb-1">Auditoría</h1>
-    <div class="breadcrumbs"><a href="{% url 'inicio' %}">Inicio</a> / Auditoría</div>
-  </div>
-  <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-icon" data-back>
-    <i class="bi bi-arrow-left"></i> Volver
-  </a>
-</div>
-
-<ul class="nav nav-pills brand-subtle p-2 rounded mb-3" id="audTabs" role="tablist">
-  <li class="nav-item" role="presentation">
-    <button class="nav-link {% if active_tab != 'lote' %}active{% endif %}" id="tab-individual-btn"
-            data-bs-toggle="pill" data-bs-target="#tab-individual" type="button" role="tab">
-      <i class="bi bi-person-check"></i> Individual
-    </button>
-  </li>
-  <li class="nav-item" role="presentation">
-    <button class="nav-link {% if active_tab == 'lote' %}active{% endif %}" id="tab-lote-btn"
-            data-bs-toggle="pill" data-bs-target="#tab-lote" type="button" role="tab">
-      <i class="bi bi-file-earmark-spreadsheet"></i> Por lote (CSV)
-    </button>
-  </li>
-</ul>
-
-<div class="tab-content">
-  <!-- TAB: INDIVIDUAL -->
-  <div class="tab-pane fade {% if active_tab != 'lote' %}show active{% endif %}" id="tab-individual" role="tabpanel">
-    <div class="row g-3">
-      <div class="col-lg-6">
-        <div class="card shadow-sm">
-          <div class="card-header bg-primary text-white"><h5>Ingresar datos</h5></div>
-          <div class="card-body">
-            <form method="post" class="row g-3" action="{% url 'auditoria_front' %}">
-              {% csrf_token %}
-              <div class="col-md-4">
-                <label class="form-label" for="importe">Importe</label>
-                <input class="form-control" id="importe" type="number" step="0.01" name="importe" required>
-              </div>
-              <div class="col-md-8">
-                <label class="form-label" for="category">Categoría</label>
-                <input class="form-control" id="category" name="category" placeholder="shopping_pos / food_dining / ..." required>
-              </div>
-              <div class="col-md-6">
-                <label class="form-label" for="state">Estado/Distrito</label>
-                <input class="form-control" id="state" name="state" placeholder="miraflores / lima / ..." required>
-              </div>
-              <div class="col-md-6">
-                <label class="form-label" for="gender">Género</label>
-                <select class="form-select" id="gender" name="gender" required>
-                  <option value="m">Masculino</option>
-                  <option value="f">Femenino</option>
-                </select>
-              </div>
-              <div class="col-md-6">
-                <label class="form-label" for="age">Edad</label>
-                <input class="form-control" id="age" name="age" type="number" min="0" max="120" required>
-              </div>
-              <div class="col-md-6">
-                <label class="form-label" for="city_pop">Población de la ciudad</label>
-                <input class="form-control" id="city_pop" name="city_pop" type="number" min="0" required>
-              </div>
-              <div class="col-12 d-flex gap-2">
-                <button class="btn btn-primary btn-icon" type="submit">
-                  <i class="bi bi-search"></i> Auditar
-                </button>
-              </div>
-            </form>
-          </div>
+    <div class="page-head">
+        <div>
+            <h1 class="h3 mb-1">Auditoría</h1>
+            <div class="breadcrumbs"><a href="{% url 'inicio' %}">Inicio</a> / Auditoría</div>
         </div>
-      </div>
-
-      {% if resultado %}
-      <div class="col-lg-6">
-        <div class="card shadow-sm">
-          <div class="card-header bg-success text-white"><h5>Resultado</h5></div>
-          <div class="card-body">
-            <p class="mb-2">
-              <b>Score de riesgo:</b>
-              <span class="badge
-                {% if resultado.score_riesgo|floatformat >= 80 %} badge-risk-high
-                {% elif resultado.score_riesgo|floatformat >= 50 %} badge-risk-med
-                {% else %} badge-risk-low
-                {% endif %}">
-                {{ resultado.score_riesgo }}
-              </span>
-            </p>
-            <p class="mb-2"><b>Explicabilidad:</b></p>
-            <details class="brand-subtle p-2 rounded">
-              <summary class="mb-2">Ver detalle</summary>
-              <pre class="mb-0">{{ resultado.explicabilidad }}</pre>
-            </details>
-          </div>
-        </div>
-      </div>
-      {% endif %}
+        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-icon" data-back>
+            <i class="bi bi-arrow-left"></i> Volver
+        </a>
     </div>
-  </div>
 
-  <!-- TAB: LOTE -->
-  <div class="tab-pane fade {% if active_tab == 'lote' %}show active{% endif %}" id="tab-lote" role="tabpanel">
-    <div class="card shadow-sm">
-      <div class="card-header bg-primary text-white"><h5>Cargar archivo CSV</h5></div>
-      <div class="card-body">
-        <p class="mb-2"><b>Formato esperado (cabeceras):</b> <code>importe,category,state,gender,age,city_pop</code></p>
-        <details class="mb-3">
-          <summary>Ver ejemplo</summary>
-          <pre class="brand-subtle p-2 rounded mb-0">importe,category,state,gender,age,city_pop
+    <ul class="nav nav-pills brand-subtle p-2 rounded mb-3" id="audTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link {% if active_tab != 'lote' %}active{% endif %}" id="tab-individual-btn"
+                    data-bs-toggle="pill" data-bs-target="#tab-individual" type="button" role="tab">
+                <i class="bi bi-person-check"></i> Individual
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link {% if active_tab == 'lote' %}active{% endif %}" id="tab-lote-btn"
+                    data-bs-toggle="pill" data-bs-target="#tab-lote" type="button" role="tab">
+                <i class="bi bi-file-earmark-spreadsheet"></i> Por lote (CSV)
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+        <!-- TAB: INDIVIDUAL -->
+        <div class="tab-pane fade {% if active_tab != 'lote' %}show active{% endif %}" id="tab-individual"
+             role="tabpanel">
+            <div class="row g-3">
+                <div class="col-lg-6">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-primary text-white"><h5>Ingresar datos</h5></div>
+                        <div class="card-body">
+                            <form method="post" class="row g-3" action="{% url 'auditoria_front' %}">
+                                {% csrf_token %}
+                                <div class="col-md-4">
+                                    <label class="form-label" for="importe">Importe</label>
+                                    <input class="form-control" id="importe" type="number" step="0.01" name="importe"
+                                           required>
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label" for="category">Categoría</label>
+                                    <input class="form-control" id="category" name="category"
+                                           placeholder="shopping_pos / food_dining / ..." required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" for="state">Estado/Distrito</label>
+                                    <input class="form-control" id="state" name="state"
+                                           placeholder="miraflores / lima / ..." required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" for="gender">Género</label>
+                                    <select class="form-select" id="gender" name="gender" required>
+                                        <option value="m">Masculino</option>
+                                        <option value="f">Femenino</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" for="age">Edad</label>
+                                    <input class="form-control" id="age" name="age" type="number" min="0" max="120"
+                                           required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" for="city_pop">Población de la ciudad</label>
+                                    <input class="form-control" id="city_pop" name="city_pop" type="number" min="0"
+                                           required>
+                                </div>
+                                <div class="col-12 d-flex gap-2">
+                                    <button class="btn btn-primary btn-icon" type="submit">
+                                        <i class="bi bi-search"></i> Auditar
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                {% if resultado %}
+                    <div class="col-lg-6">
+                        <div class="card shadow-sm">
+                            <div class="card-header bg-success text-white"><h5>Resultado</h5></div>
+                            <div class="card-body">
+                                <p class="mb-2">
+                                    <b>Score de riesgo:</b>
+                                    <span class="badge
+  {% if resultado.score_riesgo >= 80 %} badge-risk-high
+  {% elif resultado.score_riesgo >= 50 %} badge-risk-med
+  {% else %} badge-risk-low
+  {% endif %}">
+  {{ resultado.score_riesgo|floatformat:3 }}%
+</span>
+
+                                <h6 class="mb-2">Explicabilidad:</h6>
+                                <details class="xai-json-wrap" open>
+                                    <summary> Ver detalle</summary>
+                                    <pre id="xai-json" class="xai-json"></pre>
+                                </details>
+                                {% if resultado and resultado.explicabilidad %}
+                                    <script>
+                                        (function () {
+                                            const raw = '{{ resultado.explicabilidad|escapejs }}';
+                                            const el = document.getElementById('xai-json');
+                                            try {
+                                                const obj = JSON.parse(raw);                 // convierte string → objeto
+                                                el.textContent = JSON.stringify(obj, null, 2); // pretty print (2 espacios)
+                                            } catch (e) {
+                                                // Si por alguna razón ya viene formateado o no es JSON, lo mostramos tal cual
+                                                el.textContent = raw || '—';
+                                            }
+                                        })();
+                                    </script>
+                                {% endif %}
+
+
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- TAB: LOTE -->
+        <div class="tab-pane fade {% if active_tab == 'lote' %}show active{% endif %}" id="tab-lote" role="tabpanel">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white"><h5>Cargar archivo CSV</h5></div>
+                <div class="card-body">
+                    <p class="mb-2"><b>Formato esperado (cabeceras):</b> <code>importe,category,state,gender,age,city_pop</code>
+                    </p>
+                    <details class="mb-3">
+                        <summary>Ver ejemplo</summary>
+                        <pre class="brand-subtle p-2 rounded mb-0">importe,category,state,gender,age,city_pop
 120.50,shopping_pos,miraflores,m,32,1000000
 999.90,food_dining,lima,f,28,900000</pre>
-        </details>
+                    </details>
 
-        <form method="post" enctype="multipart/form-data"
-              class="d-flex gap-2 align-items-center flex-wrap"
-              action="{% url 'auditoria_lote' %}">
-          {% csrf_token %}
-          <input class="form-control" type="file" name="archivo" accept=".csv" required style="max-width:360px;">
-          <button class="btn btn-primary btn-icon" type="submit">
-            <i class="bi bi-upload"></i> Procesar CSV
-          </button>
-        </form>
-      </div>
-    </div>
+                    <form method="post" enctype="multipart/form-data"
+                          class="d-flex gap-2 align-items-center flex-wrap"
+                          action="{% url 'auditoria_lote' %}">
+                        {% csrf_token %}
+                        <input class="form-control" type="file" name="archivo" accept=".csv" required
+                               style="max-width:360px;">
+                        <button class="btn btn-primary btn-icon" type="submit">
+                            <i class="bi bi-upload"></i> Procesar CSV
+                        </button>
+                    </form>
+                </div>
+            </div>
 
-    {% if resultados %}
-    <div class="card shadow-sm mt-3">
-      <div class="card-header bg-success text-white"><h5>Resultados (ordenados por score desc.)</h5></div>
-      <div class="card-body">
-        <div class="table-responsive">
-          <table class="table table-striped table-hover align-middle">
-            <thead class="table-light">
-              <tr>
-                <th>#</th>
-                <th>Importe</th>
-                <th>Categoría</th>
-                <th>Estado</th>
-                <th>Género</th>
-                <th>Edad</th>
-                <th>Población</th>
-                <th>Score riesgo</th>
-                <th>Explicabilidad</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for r in resultados %}
-              <tr>
-                <td>{{ forloop.counter }}</td>
-                <td>{{ r.importe }}</td>
-                <td>{{ r.category }}</td>
-                <td>{{ r.state }}</td>
-                <td>{{ r.gender|upper }}</td>
-                <td>{{ r.age }}</td>
-                <td>{{ r.city_pop }}</td>
-                <td>
-                  <span class="badge
-                    {% if r.score_riesgo|floatformat >= 80 %} badge-risk-high
-                    {% elif r.score_riesgo|floatformat >= 50 %} badge-risk-med
-                    {% else %} badge-risk-low
-                    {% endif %}">
-                    {{ r.score_riesgo }}
-                  </span>
-                </td>
-                <td>
-                  <details>
-                    <summary>Ver</summary>
-                    <pre class="mb-0">{{ r.explicabilidad|safe }}</pre>
-                  </details>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+            {% if resultados %}
+                <div class="card shadow-sm mt-3">
+                    <div class="card-header bg-success text-white"><h5>Resultados (ordenados por score desc.)</h5></div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover align-middle">
+                                <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Importe</th>
+                                    <th>Categoría</th>
+                                    <th>Estado</th>
+                                    <th>Género</th>
+                                    <th>Edad</th>
+                                    <th>Población</th>
+                                    <th>Score riesgo</th>
+                                    <th>Explicabilidad</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                {% for r in resultados %}
+                                    <tr>
+                                        <td>{{ forloop.counter }}</td>
+                                        <td>{{ r.importe }}</td>
+                                        <td>{{ r.category }}</td>
+                                        <td>{{ r.state }}</td>
+                                        <td>{{ r.gender|upper }}</td>
+                                        <td>{{ r.age }}</td>
+                                        <td>{{ r.city_pop }}</td>
+                                        <td>
+  <span class="badge
+    {% if r.score_riesgo >= 80 %} badge-risk-high
+    {% elif r.score_riesgo >= 50 %} badge-risk-med
+    {% else %} badge-risk-low
+    {% endif %}">
+    {{ r.score_riesgo|floatformat:3 }}%
+  </span>
+                                        </td>
+
+                                        <td>
+                                            <details>
+                                                <summary>Ver</summary>
+                                                <pre class="mb-0">{{ r.explicabilidad|safe }}</pre>
+                                            </details>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
         </div>
-      </div>
     </div>
-    {% endif %}
-  </div>
-</div>
 {% endblock %}
+<style>
+    :root {
+        --brand: #d00000;
+    }
+
+    /* rojo de marca */
+
+    .badge-risk-high {
+        background: var(--brand);
+        color: #fff;
+    }
+
+    /* >= 80 */
+    .badge-risk-med {
+        background: #ffc107;
+        color: #212529;
+    }
+
+    /* 50–79.99 */
+    .badge-risk-low {
+        background: #198754;
+        color: #fff;
+    }
+
+    /* < 50 */
+</style>
