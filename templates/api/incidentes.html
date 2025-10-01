@@ -3,321 +3,455 @@
 {% block title %}Incidentes{% endblock %}
 
 {% block content %}
-<div class="page-head">
-  <div>
-    <h1 class="h3 mb-1">Listado de Incidentes</h1>
-    <div class="breadcrumbs"><a href="{% url 'inicio' %}">Inicio</a> / Incidentes</div>
-  </div>
-  <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-icon" data-back>
-    <i class="bi bi-arrow-left"></i> Volver
-  </a>
-</div>
-
-<!-- Toolbar -->
-<div class="card shadow-sm mb-3">
-  <div class="card-body">
-    <form class="row g-2 align-items-end" onsubmit="event.preventDefault()">
-      <div class="col-lg-4">
-        <label class="form-label mb-1">Buscar</label>
-        <div class="input-group">
-          <span class="input-group-text"><i class="bi bi-search"></i></span>
-          <input id="buscarInput" type="text" class="form-control"
-                 placeholder="ID, estado, comentario, categoría…">
+    <div class="page-head">
+        <div>
+            <h1 class="h3 mb-1">Listado de Incidentes</h1>
+            <div class="breadcrumbs"><a href="{% url 'inicio' %}">Inicio</a> / Incidentes</div>
         </div>
-      </div>
-      <div class="col-sm-6 col-lg-2">
-        <label class="form-label mb-1">Estado</label>
-        <select id="estadoFilter" class="form-select">
-          <option value="">Todos</option>
-          <option value="pendiente">Pendiente</option>
-          <option value="fraude confirmado">Fraude confirmado</option>
-          <option value="falso positivo">Falso positivo</option>
-        </select>
-      </div>
-      <div class="col-sm-6 col-lg-2">
-        <label class="form-label mb-1">Desde</label>
-        <input id="desdeFilter" type="date" class="form-control">
-      </div>
-      <div class="col-sm-6 col-lg-2">
-        <label class="form-label mb-1">Hasta</label>
-        <input id="hastaFilter" type="date" class="form-control">
-      </div>
-      <div class="col-sm-6 col-lg-2 d-flex gap-2">
-        <button type="button" class="btn btn-outline-secondary flex-grow-1" id="limpiarBtn">Limpiar</button>
-        <button type="button" class="btn btn-primary flex-grow-1" id="exportCsvBtn">
-          <i class="bi bi-download"></i> CSV
-        </button>
-      </div>
-    </form>
-  </div>
-</div>
+        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-icon" data-back>
+            <i class="bi bi-arrow-left"></i> Volver
+        </a>
+    </div>
 
-<!-- Tabla -->
-<div class="card shadow-sm">
-  <div class="card-header d-flex justify-content-between align-items-center text-white" style="background:#d00000">
-    <h5 class="mb-0">Incidentes</h5>
-    <small id="countLabel" class="text-white-50"></small>
-  </div>
-  <div class="card-body p-0">
-    <div class="table-responsive">
-      <table id="tablaIncidentes" class="table table-hover align-middle mb-0">
-        <thead class="table-light position-sticky top-0" style="z-index:1">
-          <tr>
-            <th class="text-nowrap sortable" data-sort="id">ID <i class="bi bi-arrow-down-up"></i></th>
-            <th class="text-nowrap sortable" data-sort="score">Score <i class="bi bi-arrow-down-up"></i></th>
-            <th class="text-nowrap sortable" data-sort="fecha">Fecha <i class="bi bi-arrow-down-up"></i></th>
-            <th class="text-nowrap">Estado</th>
-            <th class="text-nowrap">Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for incidente in incidentes %}
-          <tr
-            data-estado="{{ incidente.estado|lower }}"
-            data-id="{{ incidente.id_incidente }}"
-            data-score="{{ incidente.score_riesgo }}"
-            data-fecha="{{ incidente.fecha|date:'Y-m-d' }}"
-            class="{% if incidente.estado == 'Pendiente' and incidente.score_riesgo >= 70 %}row-alert{% endif %}"
-          >
-            <td class="fw-semibold">#{{ incidente.id_incidente }}</td>
-            <td>
-              <span class="badge
-                {% if incidente.score_riesgo >= 80 %} badge-risk-high
-                {% elif incidente.score_riesgo >= 50 %} badge-risk-med text-dark
-                {% else %} badge-risk-low
-                {% endif %}">
-                {{ incidente.score_riesgo }}%
-              </span>
-            </td>
-            <td>
-              {% localtime on %}{{ incidente.fecha|date:"d/M/Y H:i" }}{% endlocaltime %}
-            </td>
-            <td>
-              {% if incidente.estado == "Fraude confirmado" %}
-                <span class="badge status-badge status-badge-fraud">
-                  <i class="bi bi-shield-exclamation me-1"></i>Fraude confirmado
-                </span>
-              {% elif incidente.estado == "Falso positivo" %}
-                <span class="badge status-badge status-badge-ok">
-                  <i class="bi bi-patch-check me-1"></i>Falso positivo
-                </span>
-              {% elif incidente.estado == "Pendiente" %}
-                <span class="badge status-badge status-badge-pending">
-                  <i class="bi bi-hourglass-split me-1"></i>Pendiente
-                </span>
-              {% else %}
-                <span class="badge bg-secondary">{{ incidente.estado }}</span>
-              {% endif %}
-            </td>
-            <td class="d-flex gap-2">
-              <a class="btn btn-sm btn-primary btn-icon"
-                 href="/api/incidentes/{{ incidente.id_incidente }}/detalle/">
-                <i class="bi bi-pencil-square"></i> Gestionar
-              </a>
-              <button class="btn btn-sm btn-outline-secondary" type="button"
-                      onclick="navigator.clipboard.writeText('{{ incidente.id_incidente }}')"
-                      title="Copiar ID">
-                <i class="bi bi-clipboard"></i>
-              </button>
-            </td>
-          </tr>
-          {% empty %}
-          <tr>
-            <td colspan="5" class="text-center text-muted py-4">
-              No hay incidentes registrados.
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <!-- Toolbar -->
+    <div class="card shadow-sm mb-3">
+        <div class="card-body">
+            <form class="row g-2 align-items-end" onsubmit="event.preventDefault()">
+                <div class="col-lg-4">
+                    <label class="form-label mb-1">Buscar</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input id="buscarInput" type="text" class="form-control"
+                               placeholder="ID, estado, comentario, categoría…">
+                    </div>
+                </div>
+                <div class="col-sm-6 col-lg-2">
+                    <label class="form-label mb-1">Estado</label>
+                    <select id="estadoFilter" class="form-select">
+                        <option value="">Todos</option>
+                        <option value="pendiente">Pendiente</option>
+                        <option value="fraude confirmado">Fraude confirmado</option>
+                        <option value="falso positivo">Falso positivo</option>
+                    </select>
+                </div>
+                <div class="col-sm-6 col-lg-2">
+                    <label class="form-label mb-1">Desde</label>
+                    <input id="desdeFilter" type="date" class="form-control">
+                </div>
+                <div class="col-sm-6 col-lg-2">
+                    <label class="form-label mb-1">Hasta</label>
+                    <input id="hastaFilter" type="date" class="form-control">
+                </div>
+                <div class="col-sm-6 col-lg-2 d-flex gap-2">
+                    <button type="button" class="btn btn-outline-secondary flex-grow-1" id="limpiarBtn">Limpiar</button>
+                    <button type="button" class="btn btn-primary flex-grow-1" id="exportCsvBtn">
+                        <i class="bi bi-download"></i> CSV
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
-    <!-- Paginación -->
-    <div class="d-flex justify-content-between align-items-center p-3">
-      <div class="d-flex align-items-center gap-2">
-        <label class="text-muted">Por página</label>
-        <select id="pageSize" class="form-select form-select-sm" style="width:auto">
-          <option>10</option><option>25</option><option>50</option><option>100</option>
-        </select>
-      </div>
-      <nav>
-        <ul id="paginador" class="pagination pagination-sm mb-0"></ul>
-      </nav>
+
+    <!-- Tabla -->
+    <div class="card shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center text-white"
+             style="background:#d00000">
+            <h5 class="mb-0">Incidentes</h5>
+            <small id="countLabel" class="text-white-50"></small>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table id="tablaIncidentes" class="table table-hover align-middle mb-0">
+                    <thead class="table-light position-sticky top-0" style="z-index:1">
+                    <tr>
+                        <th class="text-nowrap sortable" data-sort="id">ID <i class="bi bi-arrow-down-up"></i></th>
+                        <th class="text-nowrap sortable" data-sort="score">Score <i class="bi bi-arrow-down-up"></i>
+                        </th>
+                        <th class="text-nowrap sortable" data-sort="fecha">Fecha <i class="bi bi-arrow-down-up"></i>
+                        </th>
+                        <th class="text-nowrap">Estado</th>
+                        <th class="text-nowrap">Acciones</th>
+                    </tr>
+                    </thead>
+                    <tbody id="incidentes-tbody">
+                    {% for incidente in incidentes %}
+                        <tr data-id="{{ incidente.id_incidente }}">
+                            <td>{{ incidente.id_incidente }}</td>
+                            <td>
+      <span class="badge
+        {% if incidente.score_riesgo >= 80 %} badge-risk-high
+        {% elif incidente.score_riesgo >= 50 %} badge-risk-med
+        {% else %} badge-risk-low
+        {% endif %}">
+        {{ incidente.score_riesgo|floatformat:2 }}%
+      </span>
+                            </td>
+                            <td>{{ incidente.fecha }}</td>
+                            <td>
+                                {% if incidente.estado == "Pendiente" %}
+                                    <span class="badge bg-warning text-dark">Pendiente</span>
+                                {% elif incidente.estado == "Falso positivo" %}
+                                    <span class="badge bg-success">Falso positivo</span>
+                                {% elif incidente.estado == "Fraude confirmado" %}
+                                    <span class="badge bg-danger">Fraude confirmado</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ incidente.estado }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a class="btn btn-sm btn-primary btn-icon"
+                                   href="/api/incidentes/{{ incidente.id_incidente }}/detalle/">
+                                    <i class="bi bi-pencil-square"></i> Gestionar
+                                </a>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted">No hay incidentes registrados.</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+
+                </table>
+            </div>
+            <!-- Paginación -->
+            <div class="d-flex justify-content-between align-items-center p-3">
+                <div class="d-flex align-items-center gap-2">
+                    <label class="text-muted">Por página</label>
+                    <select id="pageSize" class="form-select form-select-sm" style="width:auto">
+                        <option>10</option>
+                        <option>25</option>
+                        <option>50</option>
+                        <option>100</option>
+                    </select>
+                </div>
+                <nav>
+                    <ul id="paginador" class="pagination pagination-sm mb-0"></ul>
+                </nav>
+            </div>
+        </div>
     </div>
-  </div>
-</div>
+
+    <style>
+        :root {
+            --brand: #d00000;
+        }
+
+        th.sortable {
+            cursor: pointer;
+            user-select: none;
+        }
+
+        th.sortable.active {
+            color: var(--brand);
+        }
+
+        /* Estado (pills) */
+        .status-badge {
+            padding: .35rem .6rem;
+            border-radius: 999px;
+            font-weight: 600;
+        }
+
+        .status-badge-fraud {
+            background: var(--brand);
+            color: #fff;
+        }
+
+        .status-badge-ok {
+            background: #198754;
+            color: #fff;
+        }
+
+        .status-badge-pending {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        /* Riesgo */
+        .badge-risk-high {
+            background: #dc3545;
+        }
+
+        .badge-risk-med {
+            background: #ffc107;
+        }
+
+        .badge-risk-low {
+            background: #198754;
+        }
+
+        /* Fila resaltada: pendiente + alto riesgo */
+        .row-alert {
+            background: #fff1f2;
+        }
+
+        /* rosado suave */
+        .row-alert:hover {
+            background: #ffe5e8 !important;
+        }
+    </style>
+
+    <script>
+        // ---- Utilidades
+        const $ = s => document.querySelector(s);
+        const $$ = s => document.querySelectorAll(s);
+
+        const buscarInput = $('#buscarInput');
+        const estadoFilter = $('#estadoFilter');
+        const desdeFilter = $('#desdeFilter');
+        const hastaFilter = $('#hastaFilter');
+        const limpiarBtn = $('#limpiarBtn');
+        const exportBtn = $('#exportCsvBtn');
+        const pageSizeSel = $('#pageSize');
+        const tabla = $('#tablaIncidentes');
+        const tbody = tabla.querySelector('tbody');
+        const countLabel = $('#countLabel');
+        const paginador = $('#paginador');
+
+        let sortField = null;   // 'id' | 'score' | 'fecha'
+        let sortDir = 'desc';   // 'asc' | 'desc'
+        let page = 1;
+
+        const allRows = Array.from(tbody.querySelectorAll('tr'));
+
+        function matchSearch(tr, q) {
+            if (!q) return true;
+            return tr.innerText.toLowerCase().includes(q);
+        }
+
+        function matchEstado(tr, est) {
+            if (!est) return true;
+            return (tr.dataset.estado || '') === est;
+        }
+
+        function matchFechas(tr, d1, d2) {
+            const f = tr.dataset.fecha; // 'YYYY-MM-DD'
+            if (!f) return true;
+            if (d1 && f < d1) return false;
+            if (d2 && f > d2) return false;
+            return true;
+        }
+
+        function applyFilters() {
+            const q = (buscarInput.value || '').toLowerCase().trim();
+            const est = estadoFilter.value;
+            const d1 = desdeFilter.value || null;
+            const d2 = hastaFilter.value || null;
+
+            let rows = allRows.filter(tr =>
+                matchSearch(tr, q) && matchEstado(tr, est) && matchFechas(tr, d1, d2)
+            );
+
+            if (sortField) {
+                const dir = sortDir === 'asc' ? 1 : -1;
+                rows.sort((a, b) => {
+                    const av = a.dataset[sortField], bv = b.dataset[sortField];
+                    if (sortField === 'id' || sortField === 'score') {
+                        return (Number(av) - Number(bv)) * dir;
+                    }
+                    // fecha 'YYYY-MM-DD'
+                    if (av < bv) return -1 * dir;
+                    if (av > bv) return 1 * dir;
+                    return 0;
+                });
+            }
+            return rows;
+        }
+
+        function render() {
+            const pageSize = Number(pageSizeSel.value);
+            const filtered = applyFilters();
+
+            // paginación
+            const total = filtered.length;
+            const pages = Math.max(1, Math.ceil(total / pageSize));
+            if (page > pages) page = pages;
+            const start = (page - 1) * pageSize;
+            const end = start + pageSize;
+
+            // mostrar/ocultar filas
+            allRows.forEach(tr => tr.classList.add('d-none'));
+            filtered.slice(start, end).forEach(tr => tr.classList.remove('d-none'));
+
+            // contador
+            countLabel.textContent = `${total} resultado${total !== 1 ? 's' : ''}`;
+
+            // UI paginación
+            paginador.innerHTML = '';
+            const addItem = (label, p, disabled = false, active = false) => {
+                const li = document.createElement('li');
+                li.className = `page-item ${disabled ? 'disabled' : ''} ${active ? 'active' : ''}`;
+                const a = document.createElement('a');
+                a.className = 'page-link';
+                a.href = '#';
+                a.textContent = label;
+                a.onclick = (e) => {
+                    e.preventDefault();
+                    if (!disabled) {
+                        page = p;
+                        render();
+                    }
+                };
+                li.appendChild(a);
+                paginador.appendChild(li);
+            };
+            addItem('«', Math.max(1, page - 1), page === 1);
+            const windowSize = 5;
+            const startP = Math.max(1, page - Math.floor(windowSize / 2));
+            const endP = Math.min(pages, startP + windowSize - 1);
+            for (let p = startP; p <= endP; p++) addItem(String(p), p, false, p === page);
+            addItem('»', Math.min(pages, page + 1), page === pages);
+        }
+
+        // Ordenamiento por cabecera
+        $$('#tablaIncidentes thead th.sortable').forEach(th => {
+            th.addEventListener('click', () => {
+                const f = th.dataset.sort;
+                if (sortField === f) {
+                    sortDir = (sortDir === 'asc' ? 'desc' : 'asc');
+                } else {
+                    sortField = f;
+                    sortDir = (f === 'id' ? 'desc' : 'desc');
+                }
+                $$('#tablaIncidentes thead th.sortable').forEach(x => x.classList.remove('active'));
+                th.classList.add('active');
+                render();
+            });
+        });
+
+        // Eventos
+        buscarInput.addEventListener('input', () => {
+            page = 1;
+            render();
+        });
+        estadoFilter.addEventListener('change', () => {
+            page = 1;
+            render();
+        });
+        desdeFilter.addEventListener('change', () => {
+            page = 1;
+            render();
+        });
+        hastaFilter.addEventListener('change', () => {
+            page = 1;
+            render();
+        });
+        pageSizeSel.addEventListener('change', () => {
+            page = 1;
+            render();
+        });
+
+        limpiarBtn.addEventListener('click', () => {
+            buscarInput.value = '';
+            estadoFilter.value = '';
+            desdeFilter.value = '';
+            hastaFilter.value = '';
+            sortField = null;
+            sortDir = 'desc';
+            page = 1;
+            $$('#tablaIncidentes thead th.sortable').forEach(x => x.classList.remove('active'));
+            render();
+        });
+
+        // Exportar CSV (de filas filtradas, no sólo la página actual)
+        exportBtn.addEventListener('click', () => {
+            const rows = applyFilters();
+            const headers = ['ID', 'Score', 'Fecha', 'Estado'];
+            const lines = [headers.join(',')];
+            rows.forEach(tr => {
+                const id = tr.dataset.id;
+                const score = tr.dataset.score + '%';
+                const fecha = tr.querySelector('td:nth-child(3)').innerText.trim();
+                const estado = tr.querySelector('td:nth-child(4)').innerText.trim();
+                lines.push([id, score, `"${fecha}"`, `"${estado}"`].join(','));
+            });
+            const blob = new Blob([lines.join('\n')], {type: 'text/csv;charset=utf-8;'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'incidentes.csv';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        });
+
+        // inicial
+        render();
+    </script>
+<script>
+(function(){
+  const T_BODY = document.getElementById('incidentes-tbody');
+
+  function topId(){
+    const tr = T_BODY.querySelector('tr[data-id]');
+    return tr ? Number(tr.dataset.id) : 0;
+  }
+  function badgeFor(score){
+    if (score >= 80) return 'badge-risk-high';
+    if (score >= 50) return 'badge-risk-med';
+    return 'badge-risk-low';
+  }
+  function estadoBadge(estado){
+    if (estado === 'Pendiente') return '<span class="badge bg-warning text-dark">Pendiente</span>';
+    if (estado === 'Falso positivo') return '<span class="badge bg-success">Falso positivo</span>';
+    if (estado === 'Fraude confirmado') return '<span class="badge bg-danger">Fraude confirmado</span>';
+    return `<span class="badge bg-secondary">${estado}</span>`;
+  }
+  function fmtDate(iso){
+    try { return new Date(iso).toLocaleString(); } catch(_) { return iso; }
+  }
+  function rowHtml(i){
+    const s = Number(i.score_riesgo || 0);
+    return `
+      <tr data-id="${i.id_incidente}" class="row-new">
+        <td>${i.id_incidente}</td>
+        <td><span class="badge ${badgeFor(s)}">${s.toFixed(2)}%</span></td>
+        <td>${fmtDate(i.fecha)}</td>
+        <td>${estadoBadge(i.estado)}</td>
+        <td>
+          <a class="btn btn-sm btn-primary btn-icon" href="/api/incidentes/${i.id_incidente}/detalle/">
+            <i class="bi bi-pencil-square"></i> Gestionar
+          </a>
+        </td>
+      </tr>`;
+  }
+
+  async function poll(){
+    try{
+      const after = topId();
+      const res = await fetch(`/api/incidentes/since/?after_id=${after}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const items = (data && data.items) || [];
+      if (items.length){
+        // prepend conservando orden cronológico (el más viejo primero)
+        items.reverse().forEach(i=>{
+          T_BODY.insertAdjacentHTML('afterbegin', rowHtml(i));
+        });
+        // quitar resaltado luego de 2s
+        setTimeout(()=> {
+          document.querySelectorAll('.row-new').forEach(el=> el.classList.remove('row-new'));
+        }, 2000);
+      }
+    } catch (_) { /* silencioso */ }
+  }
+
+  // empieza a consultar cada 4s
+  setInterval(poll, 4000);
+})();
+</script>
 
 <style>
-  :root{ --brand:#d00000; }
+  /* colores de riesgo que ya usamos */
+  .badge-risk-high{ background:#d00000; color:#fff; }
+  .badge-risk-med { background:#ffc107; color:#212529; }
+  .badge-risk-low { background:#198754; color:#fff; }
 
-  th.sortable{ cursor:pointer; user-select:none; }
-  th.sortable.active{ color:var(--brand); }
-
-  /* Estado (pills) */
-  .status-badge{ padding:.35rem .6rem; border-radius:999px; font-weight:600; }
-  .status-badge-fraud{ background:var(--brand); color:#fff; }
-  .status-badge-ok{ background:#198754; color:#fff; }
-  .status-badge-pending{ background:#ffc107; color:#212529; }
-
-  /* Riesgo */
-  .badge-risk-high{ background:#dc3545; }
-  .badge-risk-med{ background:#ffc107; }
-  .badge-risk-low{ background:#198754; }
-
-  /* Fila resaltada: pendiente + alto riesgo */
-  .row-alert{ background:#fff1f2; }           /* rosado suave */
-  .row-alert:hover{ background:#ffe5e8 !important; }
+  /* animación suave para filas nuevas */
+  .row-new { animation: flash 2s ease-in-out; }
+  @keyframes flash { 0%{ background:#fff3cd; } 100%{ background:transparent; } }
 </style>
 
-<script>
-  // ---- Utilidades
-  const $ = s => document.querySelector(s);
-  const $$ = s => document.querySelectorAll(s);
-
-  const buscarInput = $('#buscarInput');
-  const estadoFilter = $('#estadoFilter');
-  const desdeFilter = $('#desdeFilter');
-  const hastaFilter = $('#hastaFilter');
-  const limpiarBtn = $('#limpiarBtn');
-  const exportBtn = $('#exportCsvBtn');
-  const pageSizeSel = $('#pageSize');
-  const tabla = $('#tablaIncidentes');
-  const tbody = tabla.querySelector('tbody');
-  const countLabel = $('#countLabel');
-  const paginador = $('#paginador');
-
-  let sortField = null;   // 'id' | 'score' | 'fecha'
-  let sortDir = 'desc';   // 'asc' | 'desc'
-  let page = 1;
-
-  const allRows = Array.from(tbody.querySelectorAll('tr'));
-
-  function matchSearch(tr, q){
-    if(!q) return true;
-    return tr.innerText.toLowerCase().includes(q);
-  }
-  function matchEstado(tr, est){
-    if(!est) return true;
-    return (tr.dataset.estado || '') === est;
-  }
-  function matchFechas(tr, d1, d2){
-    const f = tr.dataset.fecha; // 'YYYY-MM-DD'
-    if(!f) return true;
-    if(d1 && f < d1) return false;
-    if(d2 && f > d2) return false;
-    return true;
-  }
-
-  function applyFilters(){
-    const q   = (buscarInput.value || '').toLowerCase().trim();
-    const est = estadoFilter.value;
-    const d1  = desdeFilter.value || null;
-    const d2  = hastaFilter.value || null;
-
-    let rows = allRows.filter(tr =>
-      matchSearch(tr, q) && matchEstado(tr, est) && matchFechas(tr, d1, d2)
-    );
-
-    if(sortField){
-      const dir = sortDir === 'asc' ? 1 : -1;
-      rows.sort((a,b)=>{
-        const av = a.dataset[sortField], bv = b.dataset[sortField];
-        if(sortField === 'id' || sortField === 'score'){
-          return (Number(av) - Number(bv)) * dir;
-        }
-        // fecha 'YYYY-MM-DD'
-        if(av < bv) return -1 * dir;
-        if(av > bv) return  1 * dir;
-        return 0;
-      });
-    }
-    return rows;
-  }
-
-  function render(){
-    const pageSize = Number(pageSizeSel.value);
-    const filtered = applyFilters();
-
-    // paginación
-    const total = filtered.length;
-    const pages = Math.max(1, Math.ceil(total / pageSize));
-    if(page > pages) page = pages;
-    const start = (page - 1) * pageSize;
-    const end   = start + pageSize;
-
-    // mostrar/ocultar filas
-    allRows.forEach(tr => tr.classList.add('d-none'));
-    filtered.slice(start, end).forEach(tr => tr.classList.remove('d-none'));
-
-    // contador
-    countLabel.textContent = `${total} resultado${total!==1?'s':''}`;
-
-    // UI paginación
-    paginador.innerHTML = '';
-    const addItem = (label, p, disabled=false, active=false) => {
-      const li = document.createElement('li');
-      li.className = `page-item ${disabled?'disabled':''} ${active?'active':''}`;
-      const a = document.createElement('a');
-      a.className = 'page-link';
-      a.href = '#';
-      a.textContent = label;
-      a.onclick = (e)=>{ e.preventDefault(); if(!disabled){ page=p; render(); } };
-      li.appendChild(a); paginador.appendChild(li);
-    };
-    addItem('«', Math.max(1, page-1), page===1);
-    const windowSize = 5;
-    const startP = Math.max(1, page - Math.floor(windowSize/2));
-    const endP = Math.min(pages, startP + windowSize - 1);
-    for(let p=startP; p<=endP; p++) addItem(String(p), p, false, p===page);
-    addItem('»', Math.min(pages, page+1), page===pages);
-  }
-
-  // Ordenamiento por cabecera
-  $$('#tablaIncidentes thead th.sortable').forEach(th=>{
-    th.addEventListener('click', ()=>{
-      const f = th.dataset.sort;
-      if(sortField === f){ sortDir = (sortDir==='asc'?'desc':'asc'); }
-      else { sortField = f; sortDir = (f==='id'?'desc':'desc'); }
-      $$('#tablaIncidentes thead th.sortable').forEach(x=>x.classList.remove('active'));
-      th.classList.add('active');
-      render();
-    });
-  });
-
-  // Eventos
-  buscarInput.addEventListener('input', ()=>{ page=1; render(); });
-  estadoFilter.addEventListener('change', ()=>{ page=1; render(); });
-  desdeFilter.addEventListener('change', ()=>{ page=1; render(); });
-  hastaFilter.addEventListener('change', ()=>{ page=1; render(); });
-  pageSizeSel.addEventListener('change', ()=>{ page=1; render(); });
-
-  limpiarBtn.addEventListener('click', ()=>{
-    buscarInput.value=''; estadoFilter.value=''; desdeFilter.value=''; hastaFilter.value='';
-    sortField=null; sortDir='desc'; page=1;
-    $$('#tablaIncidentes thead th.sortable').forEach(x=>x.classList.remove('active'));
-    render();
-  });
-
-  // Exportar CSV (de filas filtradas, no sólo la página actual)
-  exportBtn.addEventListener('click', ()=>{
-    const rows = applyFilters();
-    const headers = ['ID','Score','Fecha','Estado'];
-    const lines = [headers.join(',')];
-    rows.forEach(tr=>{
-      const id = tr.dataset.id;
-      const score = tr.dataset.score + '%';
-      const fecha = tr.querySelector('td:nth-child(3)').innerText.trim();
-      const estado = tr.querySelector('td:nth-child(4)').innerText.trim();
-      lines.push([id, score, `"${fecha}"`, `"${estado}"`].join(','));
-    });
-    const blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8;'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'incidentes.csv';
-    document.body.appendChild(a); a.click(); a.remove();
-    URL.revokeObjectURL(url);
-  });
-
-  // inicial
-  render();
-</script>
 {% endblock %}

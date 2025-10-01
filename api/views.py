@@ -81,6 +81,29 @@ class IncidenteViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK
         )
 
+    @action(detail=False, methods=['get'])
+    def since(self, request):
+        """
+        Devuelve incidentes con id_incidente > after_id (máx 50),
+        ordenados desc por fecha. Ideal para polling ligero.
+        """
+        try:
+            after = int(request.query_params.get('after_id', 0))
+        except (TypeError, ValueError):
+            after = 0
+
+        qs = Incidente.objects.filter(id_incidente__gt=after) \
+            .order_by('-fecha')[:50]
+
+        items = [{
+            "id_incidente": i.id_incidente,
+            "score_riesgo": float(i.score_riesgo or 0),
+            "estado": i.estado,
+            "fecha": i.fecha.isoformat(),
+        } for i in qs]
+
+        return Response({"items": items})
+
 class AuditoriaView(APIView):
     def post(self, request):
         data = request.data
