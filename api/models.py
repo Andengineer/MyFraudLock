@@ -48,7 +48,7 @@ class Incidente(models.Model):
     id_usuario = models.ForeignKey('Usuario', on_delete=models.SET_NULL, null=True, blank=True)
     id_transaccion = models.OneToOneField('Transaccion', on_delete=models.CASCADE)
     comentario = models.TextField(null=True, blank=True)
-    estado = models.CharField(max_length=15, default='Pendiente')
+    estado = models.CharField(max_length=20, default='Pendiente')
     es_fraude = models.BooleanField(default=False)
     fecha = models.DateTimeField(auto_now_add=True)
     score_riesgo = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)

@@ -1,5 +1,6 @@
 {% extends "api/base.html" %}
 {% load tz %}
+{% load static %}
 {% block title %}Incidentes{% endblock %}
 
 {% block content %}
@@ -75,7 +76,13 @@
                     </thead>
                     <tbody id="incidentes-tbody">
                     {% for incidente in incidentes %}
-                        <tr data-id="{{ incidente.id_incidente }}">
+                        <tr
+  data-id="{{ incidente.id_incidente }}"
+  data-estado="{{ incidente.estado|lower }}"
+  data-score="{{ incidente.score_riesgo }}"
+  data-fecha="{{ incidente.fecha|localtime|date:'Y-m-d' }}"
+>
+
                             <td>{{ incidente.id_incidente }}</td>
                             <td>
       <span class="badge
