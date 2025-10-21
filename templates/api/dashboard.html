@@ -52,7 +52,7 @@
     <div class="row g-3 mt-1">
         <div class="col-lg-6">
             <div class="card shadow-sm">
-                <div class="card-header text-white" style="background:#d00000;"><h6 class="mb-0">Fraude por ciudad (Top
+                <div class="card-header text-white" style="background:#3300ac;"><h6 class="mb-0">Fraude por ciudad (Top
                     10)</h6></div>
                 <div class="card-body">
                     <canvas id="chartCity" height="160"></canvas>
@@ -61,7 +61,7 @@
         </div>
         <div class="col-lg-6">
             <div class="card shadow-sm">
-                <div class="card-header text-white" style="background:#d00000;"><h6 class="mb-0">Fraude por
+                <div class="card-header text-white" style="background:#3300ac;"><h6 class="mb-0">Fraude por
                     categoría</h6></div>
                 <div class="card-body">
                     <canvas id="chartCat" height="160"></canvas>
@@ -74,7 +74,7 @@
     <div class="row g-3 mt-1">
         <div class="col-lg-8">
             <div class="card shadow-sm">
-                <div class="card-header text-white" style="background:#d00000;"><h6 class="mb-0">Incidentes últimos 30
+                <div class="card-header text-white" style="background:#3300ac;"><h6 class="mb-0">Incidentes últimos 30
                     días</h6></div>
                 <div class="card-body">
                     <canvas id="chartTrend" height="150"></canvas>
@@ -83,7 +83,7 @@
         </div>
         <div class="col-lg-4">
             <div class="card shadow-sm h-100">
-                <div class="card-header text-white" style="background:#d00000;"><h6 class="mb-0">Distribución de
+                <div class="card-header text-white" style="background:#3300ac;"><h6 class="mb-0">Distribución de
                     score</h6></div>
                 <div class="card-body d-flex justify-content-center align-items-center">
                     <canvas id="chartScore" style="max-height:220px"></canvas>
@@ -136,9 +136,9 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script>
-        const brand = '#d00000', ok = '#198754', warn = '#ffc107', gray = '#6c757d';
+        const brand = '#3300ac', ok = '#198754', warn = '#ffc107', gray = '#6c757d';
         // Paleta (brand-friendly). Se cicla si hay más barras que colores.
-        const PALETTE = ['#d00000', '#474aef', '#f77f00', '#ffd166', '#06d6a0', '#118ab2',
+        const PALETTE = ['#3300ac', '#474aef', '#f77f00', '#ffd166', '#06d6a0', '#118ab2',
             '#073b4c', '#8338ec', '#ff006e', '#3a86ff', '#8ac926', '#1982c4',
             '#ffca3a', '#6a4c93'];
         const colorsFor = n => Array.from({length: n}, (_, i) => PALETTE[i % PALETTE.length]);

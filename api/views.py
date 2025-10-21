@@ -17,7 +17,14 @@ from django.utils import timezone
 from functools import wraps
 from django.urls import reverse
 
-
+def usuario_login_required(view_func):
+    @wraps(view_func)
+    def _wrapped(request, *args, **kwargs):
+        if not request.session.get('usuario_id'):
+            next_url = request.get_full_path()
+            return redirect(f"{reverse('login')}?next={next_url}")
+        return view_func(request, *args, **kwargs)
+    return _wrapped
 class UsuarioViewSet(viewsets.ModelViewSet):
     queryset = Usuario.objects.all()
     serializer_class = UsuarioSerializer
@@ -131,7 +138,7 @@ class ConfiguracionViewSet(viewsets.ModelViewSet):
     serializer_class = ConfiguracionSerializer
 
 
-
+@usuario_login_required
 def dashboard_view(request):
     # KPIs
     pendientes   = Incidente.objects.filter(estado="Pendiente").count()
@@ -217,11 +224,11 @@ def dashboard_view(request):
         "serie_fp": json.dumps(series["Falso positivo"]),
     }
     return render(request, "api/dashboard.html", ctx)
-
+@usuario_login_required
 def incidentes_view(request):
     incidentes = Incidente.objects.all().order_by('-fecha')
     return render(request, "api/incidentes.html", {"incidentes": incidentes})
-
+@usuario_login_required
 def incidente_detalle_view(request, incidente_id):
     incidente = get_object_or_404(Incidente, id_incidente=incidente_id)
 
@@ -237,6 +244,7 @@ def incidente_detalle_view(request, incidente_id):
             return redirect("incidentes_listado")
 
     return render(request, "api/incidente_detalle.html", {"incidente": incidente})
+@usuario_login_required
 @csrf_exempt
 def auditoria_view(request):
     contexto = {"active_tab": "individual"}
@@ -264,6 +272,7 @@ def auditoria_view(request):
         })
         messages.success(request, "Auditoría individual procesada.")
     return render(request, "api/auditoria.html", contexto)
+@usuario_login_required
 def auditoria_lote_view(request):
     contexto = {"active_tab": "lote"}
     if request.method == "POST":
@@ -316,7 +325,7 @@ def auditoria_lote_view(request):
 
     return render(request, "api/auditoria.html", contexto)
 
-
+@usuario_login_required
 def configuracion_front(request):
     config, _ = Configuracion.objects.get_or_create(id=1)
 
@@ -356,14 +365,7 @@ def ayuda_view(request):
     config, _ = Configuracion.objects.get_or_create(id=1)
     return render(request, "api/ayuda.html", {"config": config})
 
-def usuario_login_required(view_func):
-    @wraps(view_func)
-    def _wrapped(request, *args, **kwargs):
-        if not request.session.get('usuario_id'):
-            next_url = request.get_full_path()
-            return redirect(f"{reverse('login')}?next={next_url}")
-        return view_func(request, *args, **kwargs)
-    return _wrapped
+
 
 
 def login_view(request):
