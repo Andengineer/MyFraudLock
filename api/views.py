@@ -14,6 +14,8 @@ import json
 from django.db.models.functions import TruncDate
 from django.db.models import Count
 from django.utils import timezone
+from functools import wraps
+from django.urls import reverse
 
 
 class UsuarioViewSet(viewsets.ModelViewSet):
@@ -353,3 +355,64 @@ def inicio_view(request):
 def ayuda_view(request):
     config, _ = Configuracion.objects.get_or_create(id=1)
     return render(request, "api/ayuda.html", {"config": config})
+
+def usuario_login_required(view_func):
+    @wraps(view_func)
+    def _wrapped(request, *args, **kwargs):
+        if not request.session.get('usuario_id'):
+            next_url = request.get_full_path()
+            return redirect(f"{reverse('login')}?next={next_url}")
+        return view_func(request, *args, **kwargs)
+    return _wrapped
+
+
+def login_view(request):
+    # Si ya está logueado, redirigimos
+    if request.session.get('usuario_id'):
+        return redirect(request.GET.get('next') or reverse('inicio'))
+
+    if request.method == "POST":
+        username_or_email = (request.POST.get('username') or '').strip()
+        password = (request.POST.get('password') or '').strip()
+        remember = bool(request.POST.get('remember'))
+        next_url = request.POST.get('next') or request.GET.get('next') or reverse('inicio')
+
+        from .models import Usuario
+        usuario = None
+        # Permite loguear con username o email
+        for field in ('username', 'email'):
+            try:
+                usuario = Usuario.objects.get(**{field: username_or_email}, activo=True)
+                break
+            except Usuario.DoesNotExist:
+                pass
+
+        if not usuario:
+            messages.error(request, "Usuario no encontrado o inactivo.")
+            return render(request, "api/login.html", {"next": next_url})
+
+        # ⚠️ Por ahora compara texto plano (tú guardas 'password' en claro).
+        #     Cuando quieras pasamos a hashing (PBKDF2/BCrypt).
+        if usuario.password != password:
+            messages.error(request, "Contraseña incorrecta.")
+            return render(request, "api/login.html", {"next": next_url})
+
+        # Sesión
+        request.session['usuario_id'] = usuario.id_usuario
+        request.session['usuario_rol'] = usuario.rol
+        request.session['usuario_name'] = usuario.username
+        if remember:
+            request.session.set_expiry(60 * 60 * 24 * 14)  # 14 días
+        else:
+            request.session.set_expiry(0)  # hasta cerrar navegador
+
+        messages.success(request, f"¡Bienvenido, {usuario.username}!")
+        return redirect(next_url)
+
+    return render(request, "api/login.html", {"next": request.GET.get('next', '')})
+
+
+def logout_view(request):
+    request.session.flush()
+    messages.success(request, "Sesión cerrada.")
+    return redirect('login')
