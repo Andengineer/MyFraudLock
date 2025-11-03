@@ -2,7 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import UsuarioViewSet, TransaccionViewSet, IncidenteViewSet, AuditoriaView, dashboard_view, incidentes_view, \
     incidente_detalle_view, auditoria_view, auditoria_lote_view, configuracion_front, ConfiguracionViewSet, inicio_view, \
-    ayuda_view, login_view, logout_view
+    ayuda_view, login_view, logout_view, register_view
 
 router = DefaultRouter()
 router.register(r'usuarios', UsuarioViewSet)
@@ -23,4 +23,5 @@ urlpatterns = [
     path('ayuda/', ayuda_view, name='ayuda'),
     path('login/', login_view, name='login'),  # 👈 NUEVO
     path('logout/', logout_view, name='logout'),
+    path('register/', register_view, name='register'),
 ]

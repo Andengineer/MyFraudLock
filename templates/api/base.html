@@ -13,8 +13,8 @@
     <style>
         /* ====== Brand Theme ====== */
         :root {
-            --bs-primary: #d00000;
-            --bs-primary-rgb: 208, 0, 0;
+            --bs-primary: #3300ac;
+            --bs-primary-rgb: 78, 0, 208;
         }
 
         .navbar-brand {
@@ -23,7 +23,7 @@
         }
 
         .brand-subtle {
-            background: rgba(208, 0, 0, .06);
+            background: rgba(208, 0, 208, .06);
         }
 
         .btn-icon {
@@ -100,7 +100,7 @@
 
         /* mejora visual del navbar */
         .navbar.fixed-top {
-            background: linear-gradient(90deg, #d00000, #a40000);
+            background: linear-gradient(90deg, #3300ac, #683eff);
             box-shadow: 0 4px 16px rgba(0, 0, 0, .15);
         }
 
@@ -136,20 +136,76 @@
        <div id="mainNav" class="collapse navbar-collapse">
   <!-- Menú izquierdo (lo que ya tenías) -->
        {% if current_usuario %}
-  <ul class="navbar-nav me-auto">
-    <li class="nav-item"><a class="nav-link" href="{% url 'inicio' %}">
-      <i class="bi bi-house-door"></i> Inicio</a></li>
-    <li class="nav-item"><a class="nav-link" href="{% url 'dashboard' %}">
-      <i class="bi bi-speedometer2"></i> Dashboard</a></li>
-    <li class="nav-item"><a class="nav-link" href="{% url 'incidentes_listado' %}">
-      <i class="bi bi-list-check"></i> Incidentes</a></li>
-    <li class="nav-item"><a class="nav-link" href="{% url 'auditoria_front' %}">
-      <i class="bi bi-search"></i> Auditoría</a></li>
-    <li class="nav-item"><a class="nav-link" href="{% url 'configuracion_front' %}">
-      <i class="bi bi-sliders"></i> Configuración</a></li>
-    <li class="nav-item"><a class="nav-link" href="{% url 'ayuda' %}">
-      <i class="bi bi-info-circle"></i> Información & Ayuda</a></li>
-  </ul>
+  <div id="mainNav" class="collapse navbar-collapse">
+  {% if current_usuario %}
+    <ul class="navbar-nav me-auto">
+      <!-- Siempre -->
+      <li class="nav-item">
+        <a class="nav-link" href="{% url 'inicio' %}">
+          <i class="bi bi-house-door"></i> Inicio
+        </a>
+      </li>
+
+      <!-- Dashboard: EJECUTIVO o ADMIN -->
+      {% if current_usuario.rol == 'EJECUTIVO' or current_usuario.rol == 'ADMIN' %}
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'dashboard' %}">
+            <i class="bi bi-speedometer2"></i> Dashboard
+          </a>
+        </li>
+      {% endif %}
+
+      <!-- Incidentes: ANALISTA o ADMIN -->
+      {% if current_usuario.rol == 'ANALISTA' or current_usuario.rol == 'ADMIN' %}
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'incidentes_listado' %}">
+            <i class="bi bi-list-check"></i> Incidentes
+          </a>
+        </li>
+      {% endif %}
+
+      <!-- Auditoría: cualquier autenticado (ANALISTA/EJECUTIVO/ADMIN) -->
+      <li class="nav-item">
+        <a class="nav-link" href="{% url 'auditoria_front' %}">
+          <i class="bi bi-search"></i> Auditoría
+        </a>
+      </li>
+
+      <!-- Configuración: EJECUTIVO o ADMIN -->
+      {% if current_usuario.rol == 'EJECUTIVO' or current_usuario.rol == 'ADMIN' %}
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'configuracion_front' %}">
+            <i class="bi bi-sliders"></i> Configuración
+          </a>
+        </li>
+      {% endif %}
+
+      <!-- Ayuda: siempre para autenticados -->
+      <li class="nav-item">
+        <a class="nav-link" href="{% url 'ayuda' %}">
+          <i class="bi bi-info-circle"></i> Información & Ayuda
+        </a>
+      </li>
+    </ul>
+  {% else %}
+    <!-- Público (no autenticado) -->
+    <ul class="navbar-nav me-auto">
+      <li class="nav-item">
+        <a class="nav-link" href="{% url 'inicio' %}">
+          <i class="bi bi-house-door"></i> Inicio
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="{% url 'ayuda' %}">
+          <i class="bi bi-info-circle"></i> Información & Ayuda
+        </a>
+      </li>
+    </ul>
+  {% endif %}
+
+
+</div>
+
        {% else %}
   <ul class="navbar-nav me-auto">
     <li class="nav-item"><a class="nav-link" href="{% url 'inicio' %}"><i class="bi bi-house-door"></i> Inicio</a></li>
