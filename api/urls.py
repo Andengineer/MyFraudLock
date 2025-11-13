@@ -11,7 +11,6 @@ router.register(r'incidentes', IncidenteViewSet)
 router.register(r'configuracion', ConfiguracionViewSet)
 
 urlpatterns = [
-    path('', include(router.urls)),
     path('auditoria-api/', AuditoriaView.as_view(), name='auditoria_api'),  # API JSON
     path('auditoria/', auditoria_view, name='auditoria_front'),  # Frontend HTML
     path('auditoria-lote/', auditoria_lote_view, name='auditoria_lote'),  # 👈 nuevo
@@ -24,4 +23,5 @@ urlpatterns = [
     path('login/', login_view, name='login'),  # 👈 NUEVO
     path('logout/', logout_view, name='logout'),
     path('register/', register_view, name='register'),
+    path('', include(router.urls)),
 ]
