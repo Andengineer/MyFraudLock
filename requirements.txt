@@ -3,4 +3,10 @@ djangorestframework
 django-filter
 whitenoise
 gunicorn
-# más libs que uses: numpy, pandas, scikit-learn, etc.
+
+numpy
+pandas
+scikit-learn
+joblib
+shap
+tensorflow
