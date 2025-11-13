@@ -38,7 +38,7 @@
 
         <h4 class="h5 mt-3">Interpretación del Score de Riesgo</h4>
         <p>El sistema calcula un <strong>score de riesgo (0–100)</strong>. A mayor score, mayor probabilidad de fraude.</p>
-        <p>El <strong>umbral actual</strong> es <strong>{{ config.umbral_score|default:"70" if config else "70" }}%</strong>. Las transacciones con score
+        <p>El <strong>umbral actual</strong> es <strong>{{ config.umbral_score|default:70 }}%</strong>. Las transacciones con score
           <code>≥</code> umbral generan <em>incidentes</em> automáticamente.</p>
 
         <div class="alert alert-info mb-3">

@@ -145,7 +145,7 @@
           </a>
         </li>
 
-        {% if current_usuario and current_usuario.username %}
+        {% if current_usuario %}
           {% if current_usuario.rol == 'EJECUTIVO' or current_usuario.rol == 'ADMIN' %}
             <li class="nav-item">
               <a class="nav-link" href="{% url 'dashboard' %}">
@@ -192,17 +192,17 @@
 
       <!-- Menú derecho -->
       <ul class="navbar-nav ms-auto">
-        {% if current_usuario and current_usuario.username %}
+        {% if current_usuario %}
           <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle d-flex align-items-center gap-2"
                href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
               <i class="bi bi-person-circle"></i>
-              <span class="d-none d-sm-inline">{{ current_usuario.username|default_if_none:"" }}</span>
+              <span class="d-none d-sm-inline">{{ current_usuario.username }}</span>
             </a>
             <ul class="dropdown-menu dropdown-menu-end">
               <li class="dropdown-item-text small">
-                <div class="fw-semibold">{{ current_usuario.username|default_if_none:"" }}</div>
-                <div class="text-muted">Rol: {{ current_usuario.rol|default_if_none:"" }}</div>
+                <div class="fw-semibold">{{ current_usuario.username }}</div>
+                <div class="text-muted">Rol: {{ current_usuario.rol }}</div>
               </li>
               <li><hr class="dropdown-divider"></li>
               <li>
