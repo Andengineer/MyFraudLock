@@ -1,15 +1,6 @@
-# --- Core del proyecto web ---
 Django==5.2.6
 djangorestframework
 django-filter
-gunicorn
 whitenoise
-
-# --- Ciencia de datos / ML ---
-numpy
-pandas
-scikit-learn
-joblib
-tensorflow
-tensorflow-cpu # o tensorflow-cpu si prefieres
-shap
+gunicorn
+# más libs que uses: numpy, pandas, scikit-learn, etc.
