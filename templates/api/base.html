@@ -1,9 +1,15 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="dark">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}FraudLock{% endblock %}</title>
+    <meta name="description" content="MyFraudLock — Sistema inteligente de detección de fraude con IA y explicabilidad SHAP">
+    <title>{% block title %}MyFraudLock{% endblock %}</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
     <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -11,226 +17,574 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
 
     <style>
-        /* ====== Brand Theme ====== */
+        /* ================================================================
+           DESIGN SYSTEM — MyFraudLock Premium
+           ================================================================ */
         :root {
-            --bs-primary: #3300ac;
-            --bs-primary-rgb: 78, 0, 208;
+            /* Brand */
+            --brand-50:  #ede7ff;
+            --brand-100: #d4c8ff;
+            --brand-200: #b49dff;
+            --brand-400: #7c5cfc;
+            --brand-500: #6c3eff;
+            --brand-600: #5a28e6;
+            --brand-700: #4318b8;
+            --brand-800: #2e0f8a;
+            --brand-900: #1a075c;
+
+            /* Surfaces */
+            --surface-sidebar: #0f0b24;
+            --surface-sidebar-hover: rgba(108, 62, 255, .12);
+            --surface-sidebar-active: rgba(108, 62, 255, .22);
+            --surface-body:    #f4f2fa;
+            --surface-card:    #ffffff;
+            --surface-header:  linear-gradient(135deg, #1a075c 0%, #4318b8 50%, #6c3eff 100%);
+            --surface-overlay: rgba(15, 11, 36, .6);
+
+            /* Text */
+            --text-primary:   #1a1a2e;
+            --text-secondary: #6b7280;
+            --text-sidebar:   rgba(255, 255, 255, .7);
+            --text-sidebar-active: #ffffff;
+
+            /* Status */
+            --status-pending:   #f59e0b;
+            --status-fraud:     #ef4444;
+            --status-ok:        #10b981;
+
+            /* Misc */
+            --radius-sm: .5rem;
+            --radius-md: .75rem;
+            --radius-lg: 1rem;
+            --radius-xl: 1.25rem;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+            --shadow-md: 0 4px 6px rgba(0,0,0,.05), 0 2px 4px rgba(0,0,0,.04);
+            --shadow-lg: 0 10px 25px rgba(0,0,0,.08), 0 4px 10px rgba(0,0,0,.04);
+            --shadow-xl: 0 20px 50px rgba(0,0,0,.12);
+            --transition: .2s cubic-bezier(.4,0,.2,1);
+
+            --sidebar-w: 260px;
+            --sidebar-collapsed-w: 72px;
+            --topbar-h: 0px;
         }
 
-        .navbar-brand {
-            font-weight: 700;
-            letter-spacing: .3px;
+        /* ---- Reset ---- */
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: var(--surface-body);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
         }
 
-        .brand-subtle {
-            background: rgba(208, 0, 208, .06);
+        /* ================================================================
+           SIDEBAR
+           ================================================================ */
+        .sidebar {
+            position: fixed;
+            top: 0; left: 0; bottom: 0;
+            width: var(--sidebar-w);
+            background: var(--surface-sidebar);
+            display: flex;
+            flex-direction: column;
+            z-index: 1040;
+            transition: transform var(--transition);
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,.1) transparent;
         }
-
-        .btn-icon {
-            display: inline-flex;
+        .sidebar-brand {
+            display: flex;
             align-items: center;
-            gap: .4rem;
+            gap: .75rem;
+            padding: 1.5rem 1.25rem 1.25rem;
+            text-decoration: none;
+            color: #fff;
+        }
+        .sidebar-brand-icon {
+            width: 42px; height: 42px;
+            background: var(--surface-header);
+            border-radius: var(--radius-md);
+            display: grid;
+            place-items: center;
+            font-size: 1.25rem;
+            flex-shrink: 0;
+            box-shadow: 0 0 20px rgba(108, 62, 255, .35);
+        }
+        .sidebar-brand-text {
+            font-weight: 800;
+            font-size: 1.15rem;
+            letter-spacing: -.01em;
+        }
+        .sidebar-brand-text small {
+            display: block;
+            font-weight: 400;
+            font-size: .7rem;
+            opacity: .5;
+            letter-spacing: .04em;
+            text-transform: uppercase;
         }
 
-        /* Breadcrumb simple */
+        .sidebar-section {
+            padding: 0 .75rem;
+            margin-top: .5rem;
+        }
+        .sidebar-section-title {
+            font-size: .65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: rgba(255,255,255,.3);
+            padding: .75rem .5rem .4rem;
+        }
+        .sidebar-link {
+            display: flex;
+            align-items: center;
+            gap: .7rem;
+            padding: .6rem .75rem;
+            border-radius: var(--radius-sm);
+            color: var(--text-sidebar);
+            text-decoration: none;
+            font-size: .875rem;
+            font-weight: 500;
+            transition: all var(--transition);
+            margin-bottom: 2px;
+        }
+        .sidebar-link i {
+            font-size: 1.1rem;
+            width: 1.4rem;
+            text-align: center;
+            flex-shrink: 0;
+        }
+        .sidebar-link:hover {
+            background: var(--surface-sidebar-hover);
+            color: var(--text-sidebar-active);
+        }
+        .sidebar-link.active {
+            background: var(--surface-sidebar-active);
+            color: var(--text-sidebar-active);
+            font-weight: 600;
+        }
+        .sidebar-link.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 3px;
+            height: 24px;
+            background: var(--brand-500);
+            border-radius: 0 4px 4px 0;
+        }
+        .sidebar-link { position: relative; }
+
+        .sidebar-spacer { flex: 1; }
+
+        .sidebar-user {
+            padding: 1rem 1rem 1.25rem;
+            border-top: 1px solid rgba(255,255,255,.06);
+            display: flex;
+            align-items: center;
+            gap: .65rem;
+        }
+        .sidebar-avatar {
+            width: 36px; height: 36px;
+            background: linear-gradient(135deg, var(--brand-500), var(--brand-700));
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            color: #fff;
+            font-weight: 700;
+            font-size: .85rem;
+            flex-shrink: 0;
+        }
+        .sidebar-user-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .sidebar-user-name {
+            color: #fff;
+            font-weight: 600;
+            font-size: .85rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .sidebar-user-role {
+            font-size: .7rem;
+            color: rgba(255,255,255,.4);
+            text-transform: uppercase;
+            letter-spacing: .04em;
+        }
+        .sidebar-logout {
+            color: rgba(255,255,255,.4);
+            text-decoration: none;
+            font-size: 1.15rem;
+            transition: color var(--transition);
+        }
+        .sidebar-logout:hover { color: var(--status-fraud); }
+
+        /* ---- Mobile overlay ---- */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: var(--surface-overlay);
+            z-index: 1039;
+            opacity: 0;
+            transition: opacity .3s ease;
+        }
+        .sidebar-overlay.show {
+            display: block;
+            opacity: 1;
+        }
+
+        /* ---- Mobile toggle ---- */
+        .topbar-mobile {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: 56px;
+            background: var(--surface-sidebar);
+            z-index: 1038;
+            padding: 0 1rem;
+            align-items: center;
+            gap: .75rem;
+        }
+        .topbar-mobile .navbar-toggler {
+            border: none;
+            color: #fff;
+            font-size: 1.35rem;
+            padding: .25rem;
+        }
+        .topbar-mobile .brand-mini {
+            color: #fff;
+            font-weight: 700;
+            font-size: 1.05rem;
+            text-decoration: none;
+        }
+
+        @media (max-width: 991.98px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            .topbar-mobile {
+                display: flex;
+            }
+            :root {
+                --topbar-h: 56px;
+            }
+            .main-content {
+                margin-left: 0 !important;
+            }
+        }
+
+        /* ================================================================
+           MAIN CONTENT
+           ================================================================ */
+        .main-content {
+            margin-left: var(--sidebar-w);
+            padding: calc(var(--topbar-h) + 1.5rem) 2rem 2rem;
+            min-height: 100vh;
+            transition: margin-left var(--transition);
+        }
+        @media (max-width: 767.98px) {
+            .main-content {
+                padding: calc(var(--topbar-h) + 1rem) 1rem 1rem;
+            }
+        }
+
+        /* ================================================================
+           PAGE HEADER
+           ================================================================ */
         .page-head {
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 1rem;
             flex-wrap: wrap;
-            margin-bottom: 1rem;
+            margin-bottom: 1.5rem;
         }
-
-        .page-head .breadcrumbs {
-            color: #6c757d;
-            font-size: .95rem;
-        }
-
-        /* Tablas más legibles */
-        table.table th {
-            white-space: nowrap;
-        }
-
-        /* Badges de riesgo (si los usas luego) */
-        .badge-risk-high {
-            background: #dc3545;
-        }
-
-        .badge-risk-med {
-            background: #ffc107;
-            color: #212529;
-        }
-
-        .badge-risk-low {
-            background: #198754;
-        }
-
-        /* Cards limpias */
-        .card .card-header h5, .card .card-header h4 {
+        .page-head h1 {
+            font-weight: 700;
+            font-size: 1.5rem;
             margin: 0;
+            letter-spacing: -.01em;
+        }
+        .page-head .breadcrumbs {
+            color: var(--text-secondary);
+            font-size: .85rem;
+        }
+        .page-head .breadcrumbs a {
+            color: var(--brand-500);
+            text-decoration: none;
+        }
+        .page-head .breadcrumbs a:hover {
+            text-decoration: underline;
         }
 
-        /* Toasts container */
+        /* ================================================================
+           CARDS
+           ================================================================ */
+        .card {
+            border: none;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            background: var(--surface-card);
+            transition: box-shadow var(--transition), transform var(--transition);
+        }
+        .card:hover {
+            box-shadow: var(--shadow-md);
+        }
+        .card-header {
+            border-bottom: 1px solid rgba(0,0,0,.04);
+            border-radius: var(--radius-lg) var(--radius-lg) 0 0 !important;
+            padding: 1rem 1.25rem;
+            font-weight: 600;
+        }
+        .card-header h5, .card-header h6 {
+            margin: 0;
+            font-weight: 600;
+        }
+        .card-body {
+            padding: 1.25rem;
+        }
+        .card-brand-header {
+            background: var(--surface-header);
+            color: #fff;
+        }
+
+        /* ================================================================
+           BUTTONS
+           ================================================================ */
+        .btn-brand {
+            background: linear-gradient(135deg, var(--brand-600), var(--brand-500));
+            color: #fff;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+            padding: .5rem 1.25rem;
+            transition: all var(--transition);
+            box-shadow: 0 2px 8px rgba(108, 62, 255, .25);
+        }
+        .btn-brand:hover {
+            background: linear-gradient(135deg, var(--brand-700), var(--brand-600));
+            color: #fff;
+            box-shadow: 0 4px 16px rgba(108, 62, 255, .35);
+            transform: translateY(-1px);
+        }
+        .btn-icon {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+        }
+
+        /* Bootstrap overrides */
+        .btn-primary {
+            background: linear-gradient(135deg, var(--brand-600), var(--brand-500));
+            border: none;
+            box-shadow: 0 2px 8px rgba(108, 62, 255, .2);
+        }
+        .btn-primary:hover, .btn-primary:focus {
+            background: linear-gradient(135deg, var(--brand-700), var(--brand-600));
+            box-shadow: 0 4px 16px rgba(108, 62, 255, .3);
+        }
+
+        /* ================================================================
+           TABLES
+           ================================================================ */
+        .table {
+            font-size: .875rem;
+        }
+        .table th {
+            white-space: nowrap;
+            font-weight: 600;
+            font-size: .8rem;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+            color: var(--text-secondary);
+            border-bottom-width: 1px;
+        }
+        .table td {
+            vertical-align: middle;
+        }
+
+        /* ================================================================
+           BADGES
+           ================================================================ */
+        .badge {
+            font-weight: 600;
+            font-size: .75rem;
+            letter-spacing: .02em;
+            padding: .35rem .65rem;
+            border-radius: var(--radius-sm);
+        }
+        .badge-risk-high { background: var(--status-fraud); color: #fff; }
+        .badge-risk-med  { background: var(--status-pending); color: #1a1a2e; }
+        .badge-risk-low  { background: var(--status-ok); color: #fff; }
+
+        /* ================================================================
+           TOASTS
+           ================================================================ */
         #toast-zone {
             position: fixed;
-            right: 1rem;
-            bottom: 1rem;
+            right: 1.5rem;
+            bottom: 1.5rem;
             z-index: 1080;
+            max-width: 380px;
+        }
+        .toast {
+            border-radius: var(--radius-md) !important;
+            box-shadow: var(--shadow-lg);
         }
 
-        /* Altura del navbar por breakpoint para compensar el contenido */
-        :root {
-            --nav-h: 56px;
+        /* ================================================================
+           FORM ENHANCEMENTS
+           ================================================================ */
+        .form-control:focus, .form-select:focus {
+            border-color: var(--brand-400);
+            box-shadow: 0 0 0 .2rem rgba(108, 62, 255, .15);
         }
 
-        /* móvil */
-        @media (min-width: 992px) {
-            :root {
-                --nav-h: 64px;
-            }
+        /* ================================================================
+           SCROLLBAR
+           =============================================================== */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0,0,0,.15);
+            border-radius: 3px;
         }
 
-        /* desktop */
-
-        /* separa el contenido del navbar fijo */
-        body {
-            padding-top: calc(var(--nav-h) + 16px);
+        /* ================================================================
+           ANIMATIONS
+           ================================================================ */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(16px); }
+            to   { opacity: 1; transform: translateY(0); }
         }
-
-        /* mejora visual del navbar */
-        .navbar.fixed-top {
-            background: linear-gradient(90deg, #3300ac, #683eff);
-            box-shadow: 0 4px 16px rgba(0, 0, 0, .15);
+        .animate-in {
+            animation: fadeInUp .4s cubic-bezier(.4,0,.2,1) both;
         }
+        .delay-1 { animation-delay: .05s; }
+        .delay-2 { animation-delay: .1s; }
+        .delay-3 { animation-delay: .15s; }
+        .delay-4 { animation-delay: .2s; }
 
-        /* links del navbar: hover/active más claro */
-        .navbar .nav-link {
-            border-radius: .5rem;
-            transition: background-color .15s ease;
-        }
-
-        .navbar .nav-link:hover,
-        .navbar .nav-link:focus,
-        .navbar .nav-link.active {
-            background-color: rgba(255, 255, 255, .12);
-        }
-
-        /* opcional: marca la marca un poco más grande */
-        .navbar-brand {
-            font-weight: 700;
-            letter-spacing: .3px;
-        }
-
+        /* ================================================================
+           UTILITY
+           ================================================================ */
+        .brand-subtle { background: var(--brand-50); }
+        .text-brand   { color: var(--brand-500); }
     </style>
+    {% block extra_head %}{% endblock %}
 </head>
-<body class="bg-light">
+<body>
 
-<!-- Navbar -->
-<nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top shadow-sm">
-  <div class="container-fluid">
-    <a class="navbar-brand" href="{% url 'inicio' %}">
-      <i class="bi bi-shield-lock-fill me-1"></i>MyFraudLock
-    </a>
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
-      <span class="navbar-toggler-icon"></span>
+<!-- Mobile top bar -->
+<div class="topbar-mobile" id="topbarMobile">
+    <button class="navbar-toggler" type="button" id="sidebarToggle" aria-label="Menú">
+        <i class="bi bi-list"></i>
     </button>
-
-    <div id="mainNav" class="collapse navbar-collapse">
-      <!-- Menú izquierdo -->
-      <ul class="navbar-nav me-auto">
-        <li class="nav-item">
-          <a class="nav-link" href="{% url 'inicio' %}">
-            <i class="bi bi-house-door"></i> Inicio
-          </a>
-        </li>
-
-        {% if current_usuario %}
-          {% if current_usuario.rol == 'EJECUTIVO' or current_usuario.rol == 'ADMIN' %}
-            <li class="nav-item">
-              <a class="nav-link" href="{% url 'dashboard' %}">
-                <i class="bi bi-speedometer2"></i> Dashboard
-              </a>
-            </li>
-          {% endif %}
-
-          {% if current_usuario.rol == 'ANALISTA' or current_usuario.rol == 'ADMIN' %}
-            <li class="nav-item">
-              <a class="nav-link" href="{% url 'incidentes_listado' %}">
-                <i class="bi bi-list-check"></i> Incidentes
-              </a>
-            </li>
-          {% endif %}
-
-          <li class="nav-item">
-            <a class="nav-link" href="{% url 'auditoria_front' %}">
-              <i class="bi bi-search"></i> Auditoría
-            </a>
-          </li>
-
-          {% if current_usuario.rol == 'EJECUTIVO' or current_usuario.rol == 'ADMIN' %}
-            <li class="nav-item">
-              <a class="nav-link" href="{% url 'configuracion_front' %}">
-                <i class="bi bi-sliders"></i> Configuración
-              </a>
-            </li>
-          {% endif %}
-
-          <li class="nav-item">
-            <a class="nav-link" href="{% url 'ayuda' %}">
-              <i class="bi bi-info-circle"></i> Información & Ayuda
-            </a>
-          </li>
-        {% else %}
-          <li class="nav-item">
-            <a class="nav-link" href="{% url 'ayuda' %}">
-              <i class="bi bi-info-circle"></i> Información & Ayuda
-            </a>
-          </li>
-        {% endif %}
-      </ul>
-
-      <!-- Menú derecho -->
-      <ul class="navbar-nav ms-auto">
-        {% if current_usuario %}
-          <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle d-flex align-items-center gap-2"
-               href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-              <i class="bi bi-person-circle"></i>
-              <span class="d-none d-sm-inline">{{ current_usuario.username }}</span>
-            </a>
-            <ul class="dropdown-menu dropdown-menu-end">
-              <li class="dropdown-item-text small">
-                <div class="fw-semibold">{{ current_usuario.username }}</div>
-                <div class="text-muted">Rol: {{ current_usuario.rol }}</div>
-              </li>
-              <li><hr class="dropdown-divider"></li>
-              <li>
-                <a class="dropdown-item" href="{% url 'logout' %}">
-                  <i class="bi bi-box-arrow-right me-2"></i> Cerrar sesión
-                </a>
-              </li>
-            </ul>
-          </li>
-        {% else %}
-          <li class="nav-item">
-            <a class="nav-link" href="{% url 'login' %}">
-              <i class="bi bi-box-arrow-in-right me-1"></i> Iniciar sesión
-            </a>
-          </li>
-        {% endif %}
-      </ul>
-    </div>
-  </div>
-</nav>
-
-
-<!-- Contenido -->
-<div class="container my-4">
-    {% block content %}{% endblock %}
+    <a class="brand-mini" href="{% url 'inicio' %}">
+        <i class="bi bi-shield-lock-fill me-1"></i>MyFraudLock
+    </a>
 </div>
 
-<!-- Toasts (mensajes Django) -->
+<!-- Sidebar overlay (mobile) -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<!-- Sidebar -->
+<nav class="sidebar" id="sidebar">
+    <a class="sidebar-brand" href="{% url 'inicio' %}">
+        <span class="sidebar-brand-icon">
+            <i class="bi bi-shield-lock-fill"></i>
+        </span>
+        <span class="sidebar-brand-text">
+            MyFraudLock
+            <small>Anti-Fraud AI</small>
+        </span>
+    </a>
+
+    <div class="sidebar-section">
+        <div class="sidebar-section-title">Principal</div>
+        <a class="sidebar-link" href="{% url 'inicio' %}" data-nav>
+            <i class="bi bi-house-door"></i> Inicio
+        </a>
+        {% if current_usuario %}
+            {% if current_usuario.rol == 'EJECUTIVO' or current_usuario.rol == 'ADMIN' %}
+                <a class="sidebar-link" href="{% url 'dashboard' %}" data-nav>
+                    <i class="bi bi-speedometer2"></i> Dashboard
+                </a>
+            {% endif %}
+            {% if current_usuario.rol == 'ANALISTA' or current_usuario.rol == 'ADMIN' %}
+                <a class="sidebar-link" href="{% url 'incidentes_listado' %}" data-nav>
+                    <i class="bi bi-list-check"></i> Incidentes
+                </a>
+            {% endif %}
+            <a class="sidebar-link" href="{% url 'auditoria_front' %}" data-nav>
+                <i class="bi bi-search"></i> Auditoría
+            </a>
+        {% endif %}
+    </div>
+
+    {% if current_usuario %}
+    <div class="sidebar-section">
+        <div class="sidebar-section-title">Sistema</div>
+        {% if current_usuario.rol == 'EJECUTIVO' or current_usuario.rol == 'ADMIN' %}
+            <a class="sidebar-link" href="{% url 'configuracion_front' %}" data-nav>
+                <i class="bi bi-sliders"></i> Configuración
+            </a>
+        {% endif %}
+        <a class="sidebar-link" href="{% url 'ayuda' %}" data-nav>
+            <i class="bi bi-info-circle"></i> Ayuda
+        </a>
+    </div>
+    {% else %}
+    <div class="sidebar-section">
+        <div class="sidebar-section-title">Información</div>
+        <a class="sidebar-link" href="{% url 'ayuda' %}" data-nav>
+            <i class="bi bi-info-circle"></i> Ayuda
+        </a>
+    </div>
+    {% endif %}
+
+    <div class="sidebar-spacer"></div>
+
+    {% if current_usuario %}
+    <div class="sidebar-user">
+        <div class="sidebar-avatar">
+            {{ current_usuario.username|make_list|first|upper }}
+        </div>
+        <div class="sidebar-user-info">
+            <div class="sidebar-user-name">{{ current_usuario.username }}</div>
+            <div class="sidebar-user-role">{{ current_usuario.get_rol_display }}</div>
+        </div>
+        <a href="{% url 'logout' %}" class="sidebar-logout" title="Cerrar sesión">
+            <i class="bi bi-box-arrow-right"></i>
+        </a>
+    </div>
+    {% else %}
+    <div class="sidebar-user">
+        <a href="{% url 'login' %}" class="sidebar-link" style="margin:0; flex:1;">
+            <i class="bi bi-box-arrow-in-right"></i> Iniciar sesión
+        </a>
+    </div>
+    {% endif %}
+</nav>
+
+<!-- Main content -->
+<main class="main-content">
+    {% block content %}{% endblock %}
+</main>
+
+<!-- Toasts (Django messages) -->
 <div id="toast-zone">
     {% if messages %}
         {% for message in messages %}
@@ -238,6 +592,15 @@
                  role="alert" data-bs-delay="4000">
                 <div class="d-flex">
                     <div class="toast-body">
+                        {% if message.tags == 'success' %}
+                            <i class="bi bi-check-circle me-1"></i>
+                        {% elif message.tags == 'error' %}
+                            <i class="bi bi-exclamation-circle me-1"></i>
+                        {% elif message.tags == 'warning' %}
+                            <i class="bi bi-exclamation-triangle me-1"></i>
+                        {% else %}
+                            <i class="bi bi-info-circle me-1"></i>
+                        {% endif %}
                         {{ message }}
                     </div>
                     <button type="button" class="btn-close btn-close-white me-2 m-auto"
@@ -251,25 +614,39 @@
 <!-- JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    // activar toasts si hay mensajes
+    // Toasts
     document.querySelectorAll('#toast-zone .toast').forEach(t => new bootstrap.Toast(t).show());
-    // botón volver genérico (si existe)
-    document.addEventListener('click', (e) => {
-        if (e.target.matches('[data-back]')) {
+
+    // Sidebar toggle (mobile)
+    const sidebar  = document.getElementById('sidebar');
+    const overlay  = document.getElementById('sidebarOverlay');
+    const toggle   = document.getElementById('sidebarToggle');
+
+    function openSidebar()  { sidebar.classList.add('open'); overlay.classList.add('show'); }
+    function closeSidebar() { sidebar.classList.remove('open'); overlay.classList.remove('show'); }
+
+    if (toggle)  toggle.addEventListener('click', openSidebar);
+    if (overlay) overlay.addEventListener('click', closeSidebar);
+
+    // Mark active nav link
+    (function markActiveNav(){
+        const path = window.location.pathname.replace(/\/$/, "");
+        document.querySelectorAll('.sidebar-link[data-nav]').forEach(a => {
+            const href = (a.getAttribute('href') || "").replace(/\/$/, "");
+            if (href && (href === path || (href !== "" && path.startsWith(href)))) {
+                a.classList.add('active');
+            }
+        });
+    })();
+
+    // Back button
+    document.addEventListener('click', e => {
+        if (e.target.matches('[data-back]') || e.target.closest('[data-back]')) {
             e.preventDefault();
             history.back();
         }
     });
-    // resaltar el item activo del navbar
-  (function markActiveNav(){
-    const path = window.location.pathname.replace(/\/$/, "");
-    document.querySelectorAll('#mainNav .nav-link').forEach(a=>{
-      const href = (a.getAttribute('href') || "").replace(/\/$/, "");
-      if(href && (href === path || (href !== "" && path.startsWith(href)))){
-        a.classList.add('active');
-      }
-    });
-  })();
 </script>
+{% block extra_js %}{% endblock %}
 </body>
 </html>

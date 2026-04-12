@@ -1,21 +1,190 @@
-{% extends "api/base.html" %}
-{% block title %}Crear cuenta{% endblock %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Crear cuenta — MyFraudLock</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-{% block content %}
-    <div class="container d-flex justify-content-center align-items-center" style="min-height:70vh;">
-        <div class="auth-card shadow rounded-3 w-100" style="max-width:560px;">
-            <div class="p-4 text-white rounded-top" style="background:#3300ac;">
-                <h1 class="h4 mb-0"><i class="bi bi-person-plus me-2"></i>Crear cuenta</h1>
-                <small class="text-white-50">Regístrate para gestionar incidentes</small>
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #0a0618;
+            position: relative;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Animated background */
+        .bg-anim { position: fixed; inset: 0; z-index: 0; }
+        .bg-anim::before {
+            content: ''; position: absolute;
+            width: 600px; height: 600px;
+            background: radial-gradient(circle, rgba(108,62,255,.35) 0%, transparent 70%);
+            top: -10%; right: -10%;
+            animation: float1 8s ease-in-out infinite alternate;
+        }
+        .bg-anim::after {
+            content: ''; position: absolute;
+            width: 500px; height: 500px;
+            background: radial-gradient(circle, rgba(67,24,184,.3) 0%, transparent 70%);
+            bottom: -10%; left: -10%;
+            animation: float2 10s ease-in-out infinite alternate;
+        }
+        @keyframes float1 { from { transform: translate(0,0) scale(1); } to { transform: translate(-80px,60px) scale(1.15); } }
+        @keyframes float2 { from { transform: translate(0,0) scale(1); } to { transform: translate(60px,-80px) scale(1.1); } }
+
+        .bg-grid {
+            position: fixed; inset: 0; z-index: 0;
+            background-size: 40px 40px;
+            background-image:
+                linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+            mask-image: radial-gradient(ellipse 80% 60% at 50% 50%, black, transparent);
+        }
+
+        .auth-card {
+            position: relative; z-index: 1;
+            width: 100%; max-width: 540px;
+            margin: 1.5rem;
+            animation: cardIn .6s cubic-bezier(.4,0,.2,1) both;
+        }
+        @keyframes cardIn { from { opacity: 0; transform: translateY(24px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+        .auth-card-inner {
+            background: rgba(255,255,255,.06);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,.08);
+            border-radius: 1.25rem;
+            overflow: hidden;
+        }
+
+        .auth-header {
+            padding: 2rem 2rem 1rem;
+            text-align: center;
+        }
+        .auth-logo {
+            width: 56px; height: 56px;
+            background: linear-gradient(135deg, #6c3eff, #4318b8);
+            border-radius: .875rem;
+            display: inline-grid; place-items: center;
+            font-size: 1.5rem; color: #fff;
+            margin-bottom: 1rem;
+            box-shadow: 0 0 30px rgba(108,62,255,.4);
+        }
+        .auth-header h1 { color: #fff; font-size: 1.4rem; font-weight: 700; margin-bottom: .25rem; }
+        .auth-header p   { color: rgba(255,255,255,.45); font-size: .85rem; }
+
+        .auth-body { padding: .5rem 2rem 2rem; }
+
+        .alert-auth {
+            background: rgba(239,68,68,.15); border: 1px solid rgba(239,68,68,.25);
+            color: #fca5a5; border-radius: .5rem; padding: .65rem 1rem; font-size: .85rem; margin-bottom: 1rem;
+        }
+        .alert-auth.success { background: rgba(16,185,129,.15); border-color: rgba(16,185,129,.25); color: #6ee7b7; }
+
+        label { color: rgba(255,255,255,.65); font-size: .8rem; font-weight: 500; margin-bottom: .35rem; display: block; }
+        .input-wrap { margin-bottom: 1rem; }
+        .input-field {
+            width: 100%;
+            background: rgba(255,255,255,.06);
+            border: 1px solid rgba(255,255,255,.1);
+            border-radius: .5rem;
+            padding: .6rem .85rem;
+            color: #fff; font-size: .875rem;
+            font-family: inherit;
+            transition: border-color .2s, box-shadow .2s;
+            outline: none;
+        }
+        .input-field::placeholder { color: rgba(255,255,255,.25); }
+        .input-field:focus { border-color: rgba(108,62,255,.6); box-shadow: 0 0 0 3px rgba(108,62,255,.15); }
+
+        select.input-field {
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='rgba(255,255,255,.4)' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right .75rem center;
+            padding-right: 2.25rem;
+        }
+        select.input-field option { background: #1a1a2e; color: #fff; }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0 1rem;
+        }
+        @media (max-width: 480px) {
+            .form-row { grid-template-columns: 1fr; }
+        }
+
+        .form-hint {
+            font-size: .72rem;
+            color: rgba(255,255,255,.35);
+            margin-top: .3rem;
+        }
+
+        .pass-wrap { position: relative; }
+        .pass-toggle {
+            position: absolute; right: .75rem; top: 50%; transform: translateY(-50%);
+            background: none; border: none; color: rgba(255,255,255,.4);
+            font-size: .8rem; cursor: pointer; font-family: inherit;
+        }
+        .pass-toggle:hover { color: rgba(255,255,255,.7); }
+
+        /* Password strength */
+        .pw-meter { display: flex; gap: 3px; margin-top: .35rem; }
+        .pw-meter-bar { height: 3px; flex: 1; border-radius: 2px; background: rgba(255,255,255,.1); transition: background .3s; }
+        .pw-meter-bar.weak   { background: #ef4444; }
+        .pw-meter-bar.medium { background: #f59e0b; }
+        .pw-meter-bar.strong { background: #10b981; }
+
+        .btn-auth {
+            width: 100%; padding: .7rem;
+            background: linear-gradient(135deg, #6c3eff 0%, #4318b8 100%);
+            color: #fff; border: none; border-radius: .5rem;
+            font-family: inherit; font-size: .95rem; font-weight: 600;
+            cursor: pointer; transition: all .2s;
+            box-shadow: 0 4px 16px rgba(108,62,255,.3);
+        }
+        .btn-auth:hover { box-shadow: 0 6px 24px rgba(108,62,255,.45); transform: translateY(-1px); }
+
+        .auth-footer {
+            display: flex; justify-content: space-between; align-items: center;
+            padding-top: 1.25rem;
+        }
+        .auth-footer a {
+            color: rgba(255,255,255,.5); font-size: .85rem; text-decoration: none; transition: color .2s;
+        }
+        .auth-footer a:hover { color: #fff; }
+        .auth-footer a.primary { color: #6c3eff; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="bg-anim"></div>
+    <div class="bg-grid"></div>
+
+    <div class="auth-card">
+        <div class="auth-card-inner">
+            <div class="auth-header">
+                <div class="auth-logo"><i class="bi bi-person-plus-fill"></i></div>
+                <h1>Crear cuenta</h1>
+                <p>Regístrate para gestionar incidentes</p>
             </div>
 
-            <div class="p-4 bg-white rounded-bottom">
+            <div class="auth-body">
                 {% if messages %}
                     {% for message in messages %}
-                        <div class="alert {% if message.tags %}alert-
-                            {{ message.tags }}{% else %}alert-info{% endif %} mb-3">
-                            {{ message }}
-                        </div>
+                        <div class="alert-auth {% if message.tags == 'success' %}success{% endif %}">{{ message }}</div>
                     {% endfor %}
                 {% endif %}
 
@@ -23,21 +192,23 @@
                     {% csrf_token %}
                     <input type="hidden" name="next" value="{{ next }}"/>
 
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label" for="id_username">Usuario <span
-                                    class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="id_username" name="username"
+                    <div class="form-row">
+                        <div class="input-wrap">
+                            <label for="id_username">Usuario <span style="color:#ef4444">*</span></label>
+                            <input type="text" class="input-field" id="id_username" name="username"
                                    value="{{ username|default:'' }}" required>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label" for="id_email">Correo <span class="text-danger">*</span></label>
-                            <input type="email" class="form-control" id="id_email" name="email"
+                        <div class="input-wrap">
+                            <label for="id_email">Correo <span style="color:#ef4444">*</span></label>
+                            <input type="email" class="input-field" id="id_email" name="email"
                                    value="{{ email|default:'' }}" required>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label" for="id_rol">Rol <span class="text-danger">*</span></label>
-                            <select class="form-select" id="id_rol" name="rol" required>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="input-wrap">
+                            <label for="id_rol">Rol <span style="color:#ef4444">*</span></label>
+                            <select class="input-field" id="id_rol" name="rol" required>
                                 {% for r in roles %}
                                     <option value="{{ r.value }}" {% if r.value == selected_rol %}selected{% endif %}>
                                         {{ r.label }}
@@ -45,75 +216,87 @@
                                 {% endfor %}
                             </select>
                             {% if not current_usuario or current_usuario.rol != 'ADMIN' %}
-                                <div class="form-text">Solo puedes crear cuentas Analista o Ejecutivo. Las cuentas ADMIN
-                                    las crea un administrador.
-                                </div>
+                                <div class="form-hint">Solo puedes crear cuentas Analista o Ejecutivo.</div>
                             {% endif %}
                         </div>
-
-                        <div class="col-md-6">
-                            <label class="form-label d-flex justify-content-between" for="id_password">
-                                <span>Contraseña <span class="text-danger">*</span></span>
-                                <button type="button" class="btn btn-link btn-sm p-0" id="togglePass1">Mostrar</button>
-                            </label>
-                            <input type="password" class="form-control" id="id_password" name="password"
-                                   placeholder="••••••••" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label d-flex justify-content-between" for="id_password2">
-                                <span>Repetir contraseña <span class="text-danger">*</span></span>
-                                <button type="button" class="btn btn-link btn-sm p-0" id="togglePass2">Mostrar</button>
-                            </label>
-                            <input type="password" class="form-control" id="id_password2" name="password2"
-                                   placeholder="••••••••" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label" for="id_telefono">Teléfono (opcional)</label>
-                            <input type="text" class="form-control" id="id_telefono" name="telefono"
-                                   value="{{ telefono|default:'' }}">
+                        <div class="input-wrap">
+                            <label for="id_telefono">Teléfono (opcional)</label>
+                            <input type="text" class="input-field" id="id_telefono" name="telefono"
+                                   value="{{ telefono|default:'' }}" placeholder="999888777">
                         </div>
                     </div>
 
-                    <div class="d-flex justify-content-between align-items-center mt-4">
-                        <a class="text-decoration-none" href="{% url 'login' %}">
-                            <i class="bi bi-box-arrow-in-left me-1"></i> Ya tengo cuenta
-                        </a>
-                        <button class="btn btn-primary" type="submit">
-                            <i class="bi bi-person-check me-1"></i> Crear cuenta
-                        </button>
+                    <div class="form-row">
+                        <div class="input-wrap">
+                            <label for="id_password">Contraseña <span style="color:#ef4444">*</span></label>
+                            <div class="pass-wrap">
+                                <input type="password" class="input-field" id="id_password" name="password"
+                                       placeholder="••••••••" required>
+                                <button type="button" class="pass-toggle" id="togglePass1">Mostrar</button>
+                            </div>
+                            <div class="pw-meter" id="pwMeter">
+                                <div class="pw-meter-bar" id="pw1"></div>
+                                <div class="pw-meter-bar" id="pw2"></div>
+                                <div class="pw-meter-bar" id="pw3"></div>
+                                <div class="pw-meter-bar" id="pw4"></div>
+                            </div>
+                        </div>
+                        <div class="input-wrap">
+                            <label for="id_password2">Repetir contraseña <span style="color:#ef4444">*</span></label>
+                            <div class="pass-wrap">
+                                <input type="password" class="input-field" id="id_password2" name="password2"
+                                       placeholder="••••••••" required>
+                                <button type="button" class="pass-toggle" id="togglePass2">Mostrar</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="btn-auth" type="submit" style="margin-top: .5rem;">
+                        <i class="bi bi-person-check me-1"></i> Crear cuenta
+                    </button>
+
+                    <div class="auth-footer">
+                        <a href="{% url 'login' %}"><i class="bi bi-arrow-left me-1"></i>Ya tengo cuenta</a>
+                        <a href="{% url 'inicio' %}" class="primary">Ir al inicio</a>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 
-    <style>
-        .auth-card .form-control:focus {
-            border-color: #3300ac;
-            box-shadow: 0 0 0 .2rem rgba(51, 0, 172, .15);
-        }
-
-        .btn-primary {
-            background: #3300ac;
-            border-color: #3300ac;
-        }
-
-        .btn-primary:hover {
-            background: #4e30dc;
-            border-color: #5033d5;
-        }
-    </style>
     <script>
-        const t1 = document.getElementById('togglePass1');
-        const t2 = document.getElementById('togglePass2');
-        const p1 = document.getElementById('id_password');
-        const p2 = document.getElementById('id_password2');
-        const toggle = (btn, input) => btn && input && btn.addEventListener('click', () => {
-            const show = input.type === 'password';
-            input.type = show ? 'text' : 'password';
-            btn.textContent = show ? 'Ocultar' : 'Mostrar';
+        // Toggle password visibility
+        const toggle = (btnId, inputId) => {
+            const btn = document.getElementById(btnId);
+            const input = document.getElementById(inputId);
+            if (btn && input) btn.addEventListener('click', () => {
+                const show = input.type === 'password';
+                input.type = show ? 'text' : 'password';
+                btn.textContent = show ? 'Ocultar' : 'Mostrar';
+            });
+        };
+        toggle('togglePass1', 'id_password');
+        toggle('togglePass2', 'id_password2');
+
+        // Password strength meter
+        const pw = document.getElementById('id_password');
+        const bars = [document.getElementById('pw1'), document.getElementById('pw2'),
+                      document.getElementById('pw3'), document.getElementById('pw4')];
+
+        pw.addEventListener('input', () => {
+            const v = pw.value;
+            let strength = 0;
+            if (v.length >= 6) strength++;
+            if (v.length >= 10) strength++;
+            if (/[A-Z]/.test(v) && /[a-z]/.test(v)) strength++;
+            if (/\d/.test(v) || /[^A-Za-z0-9]/.test(v)) strength++;
+
+            const classes = ['', 'weak', 'weak', 'medium', 'strong'];
+            bars.forEach((bar, i) => {
+                bar.className = 'pw-meter-bar';
+                if (i < strength) bar.classList.add(classes[strength]);
+            });
         });
-        toggle(t1, p1);
-        toggle(t2, p2);
     </script>
-{% endblock %}
+</body>
+</html>

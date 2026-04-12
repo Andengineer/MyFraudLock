@@ -1,235 +1,237 @@
 {% extends "api/base.html" %}
-{% block title %}Auditoría{% endblock %}
+{% block title %}Auditoría — MyFraudLock{% endblock %}
 
 {% block content %}
-    <div class="page-head">
-        <div>
-            <h1 class="h3 mb-1">Auditoría</h1>
-            <div class="breadcrumbs"><a href="{% url 'inicio' %}">Inicio</a> / Auditoría</div>
-        </div>
-        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-icon" data-back>
-            <i class="bi bi-arrow-left"></i> Volver
-        </a>
+<div class="page-head animate-in">
+    <div>
+        <h1>Auditoría</h1>
+        <div class="breadcrumbs"><a href="{% url 'inicio' %}">Inicio</a> / Auditoría</div>
     </div>
+    <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-icon" data-back>
+        <i class="bi bi-arrow-left"></i> Volver
+    </a>
+</div>
 
-    <ul class="nav nav-pills brand-subtle p-2 rounded mb-3" id="audTabs" role="tablist">
-        <li class="nav-item" role="presentation">
-            <button class="nav-link {% if active_tab != 'lote' %}active{% endif %}" id="tab-individual-btn"
-                    data-bs-toggle="pill" data-bs-target="#tab-individual" type="button" role="tab">
-                <i class="bi bi-person-check"></i> Individual
-            </button>
-        </li>
-        <li class="nav-item" role="presentation">
-            <button class="nav-link {% if active_tab == 'lote' %}active{% endif %}" id="tab-lote-btn"
-                    data-bs-toggle="pill" data-bs-target="#tab-lote" type="button" role="tab">
-                <i class="bi bi-file-earmark-spreadsheet"></i> Por lote (CSV)
-            </button>
-        </li>
-    </ul>
+<ul class="nav nav-pills p-2 rounded mb-3 animate-in delay-1" id="audTabs" role="tablist"
+    style="background: var(--brand-50);">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link {% if active_tab != 'lote' %}active{% endif %}" id="tab-individual-btn"
+                data-bs-toggle="pill" data-bs-target="#tab-individual" type="button" role="tab">
+            <i class="bi bi-person-check me-1"></i> Individual
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link {% if active_tab == 'lote' %}active{% endif %}" id="tab-lote-btn"
+                data-bs-toggle="pill" data-bs-target="#tab-lote" type="button" role="tab">
+            <i class="bi bi-file-earmark-spreadsheet me-1"></i> Por lote (CSV)
+        </button>
+    </li>
+</ul>
 
-    <div class="tab-content">
-        <!-- TAB: INDIVIDUAL -->
-        <div class="tab-pane fade {% if active_tab != 'lote' %}show active{% endif %}" id="tab-individual"
-             role="tabpanel">
-            <div class="row g-3">
-                <div class="col-lg-6">
-                    <div class="card shadow-sm">
-                        <div class="card-header bg-primary text-white"><h5>Ingresar datos</h5></div>
-                        <div class="card-body">
-                            <form method="post" class="row g-3" action="{% url 'auditoria_front' %}">
-                                {% csrf_token %}
-                                <div class="col-md-4">
-                                    <label class="form-label" for="importe">Importe</label>
-                                    <input class="form-control" id="importe" type="number" step="0.01" name="importe"
-                                           required>
-                                </div>
-                                <div class="col-md-8">
-                                    <label class="form-label" for="category">Categoría</label>
-                                    <input class="form-control" id="category" name="category"
-                                           placeholder="shopping_pos / food_dining / ..." required>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label" for="state">Estado/Distrito</label>
-                                    <input class="form-control" id="state" name="state"
-                                           placeholder="miraflores / lima / ..." required>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label" for="gender">Género</label>
-                                    <select class="form-select" id="gender" name="gender" required>
-                                        <option value="m">Masculino</option>
-                                        <option value="f">Femenino</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label" for="age">Edad</label>
-                                    <input class="form-control" id="age" name="age" type="number" min="0" max="120"
-                                           required>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label" for="city_pop">Población de la ciudad</label>
-                                    <input class="form-control" id="city_pop" name="city_pop" type="number" min="0"
-                                           required>
-                                </div>
-                                <div class="col-12 d-flex gap-2">
-                                    <button class="btn btn-primary btn-icon" type="submit">
-                                        <i class="bi bi-search"></i> Auditar
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-
-                {% if resultado %}
-                    <div class="col-lg-6">
-                        <div class="card shadow-sm">
-                            <div class="card-header bg-success text-white"><h5>Resultado</h5></div>
-                            <div class="card-body">
-                                <p class="mb-2">
-                                    <b>Score de riesgo:</b>
-                                    <span class="badge
-  {% if resultado.score_riesgo >= 80 %} badge-risk-high
-  {% elif resultado.score_riesgo >= 50 %} badge-risk-med
-  {% else %} badge-risk-low
-  {% endif %}">
-  {{ resultado.score_riesgo|floatformat:3 }}%
-</span>
-
-                                <h6 class="mb-2">Explicabilidad:</h6>
-                                <details class="xai-json-wrap" open>
-                                    <summary> Ver detalle</summary>
-                                    <pre id="xai-json" class="xai-json"></pre>
-                                </details>
-                                {% if resultado and resultado.explicabilidad %}
-                                    <script>
-                                        (function () {
-                                            const raw = '{{ resultado.explicabilidad|escapejs }}';
-                                            const el = document.getElementById('xai-json');
-                                            try {
-                                                const obj = JSON.parse(raw);                 // convierte string → objeto
-                                                el.textContent = JSON.stringify(obj, null, 2); // pretty print (2 espacios)
-                                            } catch (e) {
-                                                // Si por alguna razón ya viene formateado o no es JSON, lo mostramos tal cual
-                                                el.textContent = raw || '—';
-                                            }
-                                        })();
-                                    </script>
-                                {% endif %}
-
-
-                            </div>
-                        </div>
-                    </div>
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- TAB: LOTE -->
-        <div class="tab-pane fade {% if active_tab == 'lote' %}show active{% endif %}" id="tab-lote" role="tabpanel">
-            <div class="card shadow-sm">
-                <div class="card-header bg-primary text-white"><h5>Cargar archivo CSV</h5></div>
-                <div class="card-body">
-                    <p class="mb-2"><b>Formato esperado (cabeceras):</b> <code>importe,category,state,gender,age,city_pop</code>
-                    </p>
-                    <details class="mb-3">
-                        <summary>Ver ejemplo</summary>
-                        <pre class="brand-subtle p-2 rounded mb-0">importe,category,state,gender,age,city_pop
-120.50,shopping_pos,miraflores,m,32,1000000
-999.90,food_dining,lima,f,28,900000</pre>
-                    </details>
-
-                    <form method="post" enctype="multipart/form-data"
-                          class="d-flex gap-2 align-items-center flex-wrap"
-                          action="{% url 'auditoria_lote' %}">
-                        {% csrf_token %}
-                        <input class="form-control" type="file" name="archivo" accept=".csv" required
-                               style="max-width:360px;">
-                        <button class="btn btn-primary btn-icon" type="submit">
-                            <i class="bi bi-upload"></i> Procesar CSV
-                        </button>
-                    </form>
-                </div>
-            </div>
-
-            {% if resultados %}
-                <div class="card shadow-sm mt-3">
-                    <div class="card-header bg-success text-white"><h5>Resultados (ordenados por score desc.)</h5></div>
+<div class="tab-content">
+    <!-- TAB: INDIVIDUAL -->
+    <div class="tab-pane fade {% if active_tab != 'lote' %}show active{% endif %}" id="tab-individual" role="tabpanel">
+        <div class="row g-3">
+            <div class="col-lg-6 animate-in delay-2">
+                <div class="card">
+                    <div class="card-header card-brand-header"><h5 class="mb-0">Ingresar datos</h5></div>
                     <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-striped table-hover align-middle">
-                                <thead class="table-light">
-                                <tr>
-                                    <th>#</th>
-                                    <th>Importe</th>
-                                    <th>Categoría</th>
-                                    <th>Estado</th>
-                                    <th>Género</th>
-                                    <th>Edad</th>
-                                    <th>Población</th>
-                                    <th>Score riesgo</th>
-                                    <th>Explicabilidad</th>
-                                </tr>
-                                </thead>
-                                <tbody>
-                                {% for r in resultados %}
-                                    <tr>
-                                        <td>{{ forloop.counter }}</td>
-                                        <td>{{ r.importe }}</td>
-                                        <td>{{ r.category }}</td>
-                                        <td>{{ r.state }}</td>
-                                        <td>{{ r.gender|upper }}</td>
-                                        <td>{{ r.age }}</td>
-                                        <td>{{ r.city_pop }}</td>
-                                        <td>
-  <span class="badge
-    {% if r.score_riesgo >= 80 %} badge-risk-high
-    {% elif r.score_riesgo >= 50 %} badge-risk-med
-    {% else %} badge-risk-low
-    {% endif %}">
-    {{ r.score_riesgo|floatformat:3 }}%
-  </span>
-                                        </td>
-
-                                        <td>
-                                            <details>
-                                                <summary>Ver</summary>
-                                                <pre class="mb-0">{{ r.explicabilidad|safe }}</pre>
-                                            </details>
-                                        </td>
-                                    </tr>
-                                {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
+                        <form method="post" class="row g-3" action="{% url 'auditoria_front' %}">
+                            {% csrf_token %}
+                            <div class="col-md-4">
+                                <label class="form-label" for="importe">Importe</label>
+                                <input class="form-control" id="importe" type="number" step="0.01" name="importe" required>
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label" for="category">Categoría</label>
+                                <input class="form-control" id="category" name="category"
+                                       placeholder="shopping_pos / food_dining / ..." required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="state">Estado/Distrito</label>
+                                <input class="form-control" id="state" name="state"
+                                       placeholder="miraflores / lima / ..." required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="gender">Género</label>
+                                <select class="form-select" id="gender" name="gender" required>
+                                    <option value="m">Masculino</option>
+                                    <option value="f">Femenino</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="age">Edad</label>
+                                <input class="form-control" id="age" name="age" type="number" min="0" max="120" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="city_pop">Población de la ciudad</label>
+                                <input class="form-control" id="city_pop" name="city_pop" type="number" min="0" required>
+                            </div>
+                            <div class="col-12">
+                                <button class="btn btn-brand btn-icon" type="submit">
+                                    <i class="bi bi-search"></i> Auditar
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
+            </div>
+
+            {% if resultado %}
+            <div class="col-lg-6 animate-in delay-3">
+                <div class="card">
+                    <div class="card-header" style="background: linear-gradient(135deg, #059669, #10b981); color:#fff;">
+                        <h5 class="mb-0">Resultado</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Gauge -->
+                        <div class="gauge-wrap">
+                            <svg viewBox="0 0 200 120" class="gauge-svg">
+                                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#e5e7eb" stroke-width="12" stroke-linecap="round"/>
+                                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none"
+                                      stroke="url(#gaugeGrad)" stroke-width="12" stroke-linecap="round"
+                                      id="gaugeArc" stroke-dasharray="251.3" stroke-dashoffset="251.3"/>
+                                <defs>
+                                    <linearGradient id="gaugeGrad">
+                                        <stop offset="0%" stop-color="#10b981"/>
+                                        <stop offset="50%" stop-color="#f59e0b"/>
+                                        <stop offset="100%" stop-color="#ef4444"/>
+                                    </linearGradient>
+                                </defs>
+                                <text x="100" y="90" text-anchor="middle" font-size="28" font-weight="800"
+                                      fill="var(--text-primary)" id="gaugeText">0%</text>
+                                <text x="100" y="108" text-anchor="middle" font-size="10" fill="var(--text-secondary)">Score de riesgo</text>
+                            </svg>
+                        </div>
+
+                        <h6 class="mb-2 mt-3 fw-bold">Explicabilidad:</h6>
+                        <details class="xai-json-wrap" open>
+                            <summary class="text-muted small mb-2">Ver detalle</summary>
+                            <pre id="xai-json" class="bg-light rounded p-2 mb-0" style="font-size:.78rem; max-height:200px; overflow:auto;"></pre>
+                        </details>
+                        {% if resultado and resultado.explicabilidad %}
+                        <script>
+                            (function(){
+                                const raw = '{{ resultado.explicabilidad|escapejs }}';
+                                const el = document.getElementById('xai-json');
+                                try {
+                                    el.textContent = JSON.stringify(JSON.parse(raw), null, 2);
+                                } catch(e) {
+                                    el.textContent = raw || '—';
+                                }
+
+                                // Animate gauge
+                                const score = {{ resultado.score_riesgo|floatformat:2 }};
+                                const arc = document.getElementById('gaugeArc');
+                                const txt = document.getElementById('gaugeText');
+                                const total = 251.3;
+                                const offset = total - (score/100) * total;
+                                setTimeout(() => {
+                                    arc.style.transition = 'stroke-dashoffset 1s ease-out';
+                                    arc.setAttribute('stroke-dashoffset', offset);
+                                    txt.textContent = score.toFixed(1) + '%';
+                                }, 100);
+                            })();
+                        </script>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
             {% endif %}
         </div>
     </div>
-{% endblock %}
+
+    <!-- TAB: LOTE -->
+    <div class="tab-pane fade {% if active_tab == 'lote' %}show active{% endif %}" id="tab-lote" role="tabpanel">
+        <div class="card animate-in delay-2">
+            <div class="card-header card-brand-header"><h5 class="mb-0">Cargar archivo CSV</h5></div>
+            <div class="card-body">
+                <p class="mb-2"><b>Formato esperado:</b> <code>importe,category,state,gender,age,city_pop</code></p>
+                <details class="mb-3">
+                    <summary class="text-muted small">Ver ejemplo</summary>
+                    <pre class="brand-subtle p-2 rounded mb-0 mt-2" style="font-size:.8rem;">importe,category,state,gender,age,city_pop
+120.50,shopping_pos,miraflores,m,32,1000000
+999.90,food_dining,lima,f,28,900000</pre>
+                </details>
+
+                <form method="post" enctype="multipart/form-data"
+                      class="d-flex gap-2 align-items-center flex-wrap"
+                      action="{% url 'auditoria_lote' %}">
+                    {% csrf_token %}
+                    <input class="form-control" type="file" name="archivo" accept=".csv" required
+                           style="max-width:360px;">
+                    <button class="btn btn-brand btn-icon" type="submit">
+                        <i class="bi bi-upload"></i> Procesar CSV
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        {% if resultados %}
+        <div class="card mt-3 animate-in delay-3">
+            <div class="card-header" style="background: linear-gradient(135deg, #059669, #10b981); color:#fff;">
+                <h5 class="mb-0">Resultados (ordenados por score desc.)</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                        <tr>
+                            <th>#</th><th>Importe</th><th>Categoría</th><th>Estado</th>
+                            <th>Género</th><th>Edad</th><th>Población</th><th>Score</th><th>Explicabilidad</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for r in resultados %}
+                            <tr>
+                                <td>{{ forloop.counter }}</td>
+                                <td>{{ r.importe }}</td>
+                                <td>{{ r.category }}</td>
+                                <td>{{ r.state }}</td>
+                                <td>{{ r.gender|upper }}</td>
+                                <td>{{ r.age }}</td>
+                                <td>{{ r.city_pop }}</td>
+                                <td>
+                                    <span class="badge {% if r.score_riesgo >= 80 %}badge-risk-high{% elif r.score_riesgo >= 50 %}badge-risk-med{% else %}badge-risk-low{% endif %}">
+                                        {{ r.score_riesgo|floatformat:3 }}%
+                                    </span>
+                                </td>
+                                <td>
+                                    <details>
+                                        <summary class="text-muted small">Ver</summary>
+                                        <pre class="mb-0 mt-1" style="font-size:.72rem;">{{ r.explicabilidad|safe }}</pre>
+                                    </details>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
 <style>
-    :root {
-        --brand: #1700ac;
+    .gauge-wrap {
+        display: flex;
+        justify-content: center;
+        margin: .5rem 0;
     }
-
-    /* rojo de marca */
-
-    .badge-risk-high {
-        background: var(--brand);
+    .gauge-svg {
+        width: 200px;
+        max-width: 100%;
+    }
+    .nav-pills .nav-link {
+        font-weight: 600;
+        font-size: .875rem;
+        color: var(--text-primary);
+        border-radius: var(--radius-sm);
+    }
+    .nav-pills .nav-link.active {
+        background: var(--brand-500);
         color: #fff;
     }
-
-    /* >= 80 */
-    .badge-risk-med {
-        background: #ffc107;
-        color: #212529;
-    }
-
-    /* 50–79.99 */
-    .badge-risk-low {
-        background: #198754;
-        color: #fff;
-    }
-
-    /* < 50 */
 </style>
+{% endblock %}

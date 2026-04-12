@@ -1,19 +1,269 @@
-{% extends "api/base.html" %}
-{% block title %}Iniciar sesión{% endblock %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Iniciar sesión — MyFraudLock</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-{% block content %}
-    <div class="container d-flex justify-content-center align-items-center" style="min-height:70vh;">
-        <div class="auth-card shadow rounded-3 w-100" style="max-width:460px;">
-            <div class="p-4 text-white rounded-top" style="background:#3300ac;">
-                <h1 class="h4 mb-0"><i class="bi bi-shield-lock me-2"></i>Iniciar sesión</h1>
-                <small class="text-white-50">Accede para continuar</small>
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #0a0618;
+            position: relative;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Animated gradient background */
+        .bg-anim {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+        }
+        .bg-anim::before {
+            content: '';
+            position: absolute;
+            width: 600px; height: 600px;
+            background: radial-gradient(circle, rgba(108,62,255,.35) 0%, transparent 70%);
+            top: -10%; left: -10%;
+            animation: float1 8s ease-in-out infinite alternate;
+        }
+        .bg-anim::after {
+            content: '';
+            position: absolute;
+            width: 500px; height: 500px;
+            background: radial-gradient(circle, rgba(67,24,184,.3) 0%, transparent 70%);
+            bottom: -10%; right: -10%;
+            animation: float2 10s ease-in-out infinite alternate;
+        }
+        @keyframes float1 {
+            from { transform: translate(0, 0) scale(1); }
+            to   { transform: translate(80px, 60px) scale(1.15); }
+        }
+        @keyframes float2 {
+            from { transform: translate(0, 0) scale(1); }
+            to   { transform: translate(-60px, -80px) scale(1.1); }
+        }
+
+        /* Grid pattern overlay */
+        .bg-grid {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            background-size: 40px 40px;
+            background-image:
+                linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+            mask-image: radial-gradient(ellipse 80% 60% at 50% 50%, black, transparent);
+        }
+
+        /* Card */
+        .auth-card {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 440px;
+            margin: 1.5rem;
+            animation: cardIn .6s cubic-bezier(.4,0,.2,1) both;
+        }
+        @keyframes cardIn {
+            from { opacity: 0; transform: translateY(24px) scale(.97); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .auth-card-inner {
+            background: rgba(255,255,255,.06);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,.08);
+            border-radius: 1.25rem;
+            overflow: hidden;
+        }
+
+        /* Header */
+        .auth-header {
+            padding: 2rem 2rem 1.25rem;
+            text-align: center;
+        }
+        .auth-logo {
+            width: 56px; height: 56px;
+            background: linear-gradient(135deg, #6c3eff, #4318b8);
+            border-radius: .875rem;
+            display: inline-grid;
+            place-items: center;
+            font-size: 1.5rem;
+            color: #fff;
+            margin-bottom: 1rem;
+            box-shadow: 0 0 30px rgba(108,62,255,.4);
+        }
+        .auth-header h1 {
+            color: #fff;
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: .25rem;
+        }
+        .auth-header p {
+            color: rgba(255,255,255,.45);
+            font-size: .875rem;
+        }
+
+        /* Body */
+        .auth-body {
+            padding: .5rem 2rem 2rem;
+        }
+
+        /* Alerts */
+        .alert-auth {
+            background: rgba(239,68,68,.15);
+            border: 1px solid rgba(239,68,68,.25);
+            color: #fca5a5;
+            border-radius: .5rem;
+            padding: .65rem 1rem;
+            font-size: .85rem;
+            margin-bottom: 1rem;
+        }
+        .alert-auth.success {
+            background: rgba(16,185,129,.15);
+            border-color: rgba(16,185,129,.25);
+            color: #6ee7b7;
+        }
+
+        /* Form */
+        label {
+            color: rgba(255,255,255,.65);
+            font-size: .8rem;
+            font-weight: 500;
+            margin-bottom: .35rem;
+            display: block;
+        }
+        .input-wrap { margin-bottom: 1.15rem; }
+        .input-field {
+            width: 100%;
+            background: rgba(255,255,255,.06);
+            border: 1px solid rgba(255,255,255,.1);
+            border-radius: .5rem;
+            padding: .65rem .85rem;
+            color: #fff;
+            font-size: .9rem;
+            font-family: inherit;
+            transition: border-color .2s, box-shadow .2s;
+            outline: none;
+        }
+        .input-field::placeholder {
+            color: rgba(255,255,255,.25);
+        }
+        .input-field:focus {
+            border-color: rgba(108,62,255,.6);
+            box-shadow: 0 0 0 3px rgba(108,62,255,.15);
+        }
+
+        /* Row flex */
+        .auth-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.25rem;
+        }
+        .auth-check {
+            display: flex;
+            align-items: center;
+            gap: .4rem;
+            color: rgba(255,255,255,.5);
+            font-size: .8rem;
+        }
+        .auth-check input[type="checkbox"] {
+            accent-color: #6c3eff;
+            width: 15px; height: 15px;
+        }
+        .link-subtle {
+            color: rgba(255,255,255,.5);
+            font-size: .8rem;
+            text-decoration: none;
+            transition: color .2s;
+        }
+        .link-subtle:hover { color: #fff; }
+
+        /* Submit */
+        .btn-auth {
+            width: 100%;
+            padding: .75rem;
+            background: linear-gradient(135deg, #6c3eff 0%, #4318b8 100%);
+            color: #fff;
+            border: none;
+            border-radius: .5rem;
+            font-family: inherit;
+            font-size: .95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .2s;
+            box-shadow: 0 4px 16px rgba(108,62,255,.3);
+        }
+        .btn-auth:hover {
+            box-shadow: 0 6px 24px rgba(108,62,255,.45);
+            transform: translateY(-1px);
+        }
+        .btn-auth:active {
+            transform: translateY(0);
+        }
+
+        /* Footer */
+        .auth-footer {
+            text-align: center;
+            padding-top: 1.25rem;
+            color: rgba(255,255,255,.4);
+            font-size: .85rem;
+        }
+        .auth-footer a {
+            color: #6c3eff;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .auth-footer a:hover { text-decoration: underline; }
+
+        /* Toggle password */
+        .pass-wrap { position: relative; }
+        .pass-toggle {
+            position: absolute;
+            right: .75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: rgba(255,255,255,.4);
+            font-size: .8rem;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .pass-toggle:hover { color: rgba(255,255,255,.7); }
+    </style>
+</head>
+<body>
+    <div class="bg-anim"></div>
+    <div class="bg-grid"></div>
+
+    <div class="auth-card">
+        <div class="auth-card-inner">
+            <div class="auth-header">
+                <div class="auth-logo">
+                    <i class="bi bi-shield-lock-fill"></i>
+                </div>
+                <h1>Bienvenido</h1>
+                <p>Inicia sesión en MyFraudLock</p>
             </div>
 
-            <div class="p-4 bg-white rounded-bottom">
+            <div class="auth-body">
                 {% if messages %}
                     {% for message in messages %}
-                        <div class="alert {% if message.tags %}alert-
-                            {{ message.tags }}{% else %}alert-info{% endif %} mb-3">
+                        <div class="alert-auth {% if message.tags == 'success' %}success{% endif %}">
                             {{ message }}
                         </div>
                     {% endfor %}
@@ -23,59 +273,41 @@
                     {% csrf_token %}
                     <input type="hidden" name="next" value="{{ next }}"/>
 
-                    <div class="mb-3">
-                        <label for="id_username" class="form-label">Usuario o correo</label>
-                        <input type="text" name="username" id="id_username" class="form-control" autocomplete="username"
-                               placeholder="tu.usuario o correo@empresa.com" required>
+                    <div class="input-wrap">
+                        <label for="id_username">Usuario o correo</label>
+                        <input type="text" name="username" id="id_username" class="input-field"
+                               autocomplete="username" placeholder="tu.usuario o correo@empresa.com" required>
                     </div>
 
-                    <div class="mb-3">
-                        <label for="id_password" class="form-label d-flex justify-content-between">
-                            <span>Contraseña</span>
-                            <button type="button" class="btn btn-link btn-sm p-0" id="togglePass">Mostrar</button>
-                        </label>
-                        <input type="password" name="password" id="id_password" class="form-control"
-                               autocomplete="current-password"
-                               placeholder="••••••••" required>
-                    </div>
-
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" value="1" id="remember" name="remember">
-                            <label class="form-check-label" for="remember">Recordarme</label>
+                    <div class="input-wrap">
+                        <label for="id_password">Contraseña</label>
+                        <div class="pass-wrap">
+                            <input type="password" name="password" id="id_password" class="input-field"
+                                   autocomplete="current-password" placeholder="••••••••" required>
+                            <button type="button" class="pass-toggle" id="togglePass">Mostrar</button>
                         </div>
-                        <a href="{% url 'inicio' %}" class="small text-decoration-none">Volver</a>
                     </div>
 
-                    <button class="btn btn-primary w-100" type="submit">
+                    <div class="auth-row">
+                        <label class="auth-check" style="margin:0;">
+                            <input type="checkbox" value="1" name="remember"> Recordarme
+                        </label>
+                        <a href="{% url 'inicio' %}" class="link-subtle">Volver al inicio</a>
+                    </div>
+
+                    <button class="btn-auth" type="submit">
                         <i class="bi bi-box-arrow-in-right me-1"></i> Entrar
                     </button>
-                    <div class="mt-3 text-center">
-                        <span class="text-muted">¿No tienes cuenta?</span>
-                        <a href="{% url 'register' %}" class="ms-1 text-decoration-none">Crear cuenta</a>
-                    </div>
 
+                    <div class="auth-footer">
+                        ¿No tienes cuenta?
+                        <a href="{% url 'register' %}">Crear cuenta</a>
+                    </div>
                 </form>
             </div>
         </div>
     </div>
 
-    <style>
-        .auth-card .form-control:focus {
-            border-color: #3300ac;
-            box-shadow: 0 0 0 .2rem rgba(208, 0, 0, .15);
-        }
-
-        .btn-primary {
-            background: #3300ac;
-            border-color: #3300ac;
-        }
-
-        .btn-primary:hover {
-            background: #4e30dc;
-            border-color: #5033d5;
-        }
-    </style>
     <script>
         const btn = document.getElementById('togglePass');
         const input = document.getElementById('id_password');
@@ -87,4 +319,5 @@
             });
         }
     </script>
-{% endblock %}
+</body>
+</html>

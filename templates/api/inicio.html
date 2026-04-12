@@ -1,139 +1,247 @@
 {% extends "api/base.html" %}
-{% block title %}Inicio{% endblock %}
+{% block title %}Inicio — MyFraudLock{% endblock %}
 
 {% block content %}
 <!-- HERO -->
-<div class="hero rounded-3 p-4 p-md-5 mb-3 shadow-sm">
-  <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
-    <div>
-      <h1 class="mb-1">Bienvenido a MyFraudLock</h1>
-      <p class="text-white-50 mb-0">Monitorea riesgos, audita transacciones y gestiona incidentes en tiempo real.</p>
+<div class="hero animate-in">
+    <div class="hero-content">
+        <div class="hero-text">
+            <h1>Bienvenido a <span class="text-gradient">MyFraudLock</span></h1>
+            <p>Monitorea riesgos, audita transacciones y gestiona incidentes en tiempo real con inteligencia artificial.</p>
+        </div>
+        <div class="hero-actions">
+            <a href="{% url 'auditoria_front' %}" class="btn btn-brand btn-icon btn-lg">
+                <i class="bi bi-search"></i> Abrir Auditoría
+            </a>
+            <a href="{% url 'incidentes_listado' %}" class="btn btn-hero-outline btn-icon btn-lg">
+                <i class="bi bi-list-task"></i> Ver Incidentes
+            </a>
+        </div>
     </div>
-    <div class="d-flex gap-2">
-      <a href="{% url 'auditoria_front' %}" class="btn btn-light btn-lg">
-        <i class="bi bi-search me-1"></i> Abrir Auditoría
-      </a>
-      <a href="{% url 'incidentes_listado' %}" class="btn btn-outline-light btn-lg">
-        <i class="bi bi-list-task me-1"></i> Ver Incidentes
-      </a>
-    </div>
-  </div>
 </div>
 
 <!-- KPIs -->
-<div class="row g-3">
-  <div class="col-md-4">
-    <div class="card kpi-card kpi-pending shadow-sm h-100">
-      <div class="card-body d-flex align-items-center gap-3">
-        <div class="kpi-icon"><i class="bi bi-hourglass-split"></i></div>
-        <div>
-          <div class="text-muted small">Pendientes</div>
-          <div class="display-5 fw-semibold kpi-number" data-count="{{ pendientes }}">0</div>
+<div class="row g-3 mt-1">
+    <div class="col-md-4 animate-in delay-1">
+        <div class="kpi-card kpi-pending">
+            <div class="kpi-icon-wrap"><i class="bi bi-hourglass-split"></i></div>
+            <div class="kpi-body">
+                <div class="kpi-label">Pendientes</div>
+                <div class="kpi-value" data-count="{{ pendientes }}">0</div>
+            </div>
+            <div class="kpi-glow"></div>
         </div>
-      </div>
     </div>
-  </div>
-  <div class="col-md-4">
-    <div class="card kpi-card kpi-fraud shadow-sm h-100">
-      <div class="card-body d-flex align-items-center gap-3">
-        <div class="kpi-icon"><i class="bi bi-shield-exclamation"></i></div>
-        <div>
-          <div class="text-muted small">Fraude confirmado</div>
-          <div class="display-5 fw-semibold kpi-number" data-count="{{ confirmados }}">0</div>
+    <div class="col-md-4 animate-in delay-2">
+        <div class="kpi-card kpi-fraud">
+            <div class="kpi-icon-wrap"><i class="bi bi-shield-exclamation"></i></div>
+            <div class="kpi-body">
+                <div class="kpi-label">Fraude confirmado</div>
+                <div class="kpi-value" data-count="{{ confirmados }}">0</div>
+            </div>
+            <div class="kpi-glow"></div>
         </div>
-      </div>
     </div>
-  </div>
-  <div class="col-md-4">
-    <div class="card kpi-card kpi-ok shadow-sm h-100">
-      <div class="card-body d-flex align-items-center gap-3">
-        <div class="kpi-icon"><i class="bi bi-patch-check"></i></div>
-        <div>
-          <div class="text-muted small">Falsos positivos</div>
-          <div class="display-5 fw-semibold kpi-number" data-count="{{ falsos }}">0</div>
+    <div class="col-md-4 animate-in delay-3">
+        <div class="kpi-card kpi-ok">
+            <div class="kpi-icon-wrap"><i class="bi bi-patch-check"></i></div>
+            <div class="kpi-body">
+                <div class="kpi-label">Falsos positivos</div>
+                <div class="kpi-value" data-count="{{ falsos }}">0</div>
+            </div>
+            <div class="kpi-glow"></div>
         </div>
-      </div>
     </div>
-  </div>
 </div>
 
-<!-- Acciones rápidas -->
+<!-- Quick actions -->
 <div class="row g-3 mt-2">
-  <div class="col-md-4">
-    <div class="card quick-card shadow-sm h-100">
-      <div class="card-body d-flex flex-column">
-        <h5 class="card-title"><i class="bi bi-speedometer2 me-2"></i>Dashboard</h5>
-        <p class="text-muted flex-grow-1">Métricas clave y últimos incidentes.</p>
-        <a href="{% url 'dashboard' %}" class="btn btn-primary btn-icon align-self-start">
-          <i class="bi bi-arrow-right-circle"></i> Ir
+    <div class="col-md-4 animate-in delay-2">
+        <a href="{% url 'dashboard' %}" class="quick-card">
+            <div class="quick-icon"><i class="bi bi-speedometer2"></i></div>
+            <div class="quick-body">
+                <h5>Dashboard</h5>
+                <p>Métricas clave, gráficos y últimos incidentes.</p>
+            </div>
+            <i class="bi bi-arrow-right quick-arrow"></i>
         </a>
-      </div>
     </div>
-  </div>
-  <div class="col-md-4">
-    <div class="card quick-card shadow-sm h-100">
-      <div class="card-body d-flex flex-column">
-        <h5 class="card-title"><i class="bi bi-list-check me-2"></i>Incidentes</h5>
-        <p class="text-muted flex-grow-1">Listado y gestión de casos detectados.</p>
-        <a href="{% url 'incidentes_listado' %}" class="btn btn-primary btn-icon align-self-start">
-          <i class="bi bi-arrow-right-circle"></i> Ir
+    <div class="col-md-4 animate-in delay-3">
+        <a href="{% url 'incidentes_listado' %}" class="quick-card">
+            <div class="quick-icon"><i class="bi bi-list-check"></i></div>
+            <div class="quick-body">
+                <h5>Incidentes</h5>
+                <p>Listado y gestión de todos los casos detectados.</p>
+            </div>
+            <i class="bi bi-arrow-right quick-arrow"></i>
         </a>
-      </div>
     </div>
-  </div>
-  <div class="col-md-4">
-    <div class="card quick-card shadow-sm h-100">
-      <div class="card-body d-flex flex-column">
-        <h5 class="card-title"><i class="bi bi-search me-2"></i>Auditoría</h5>
-        <p class="text-muted flex-grow-1">Revisa transacciones individuales o por lote (CSV) en una sola pantalla.</p>
-        <a href="{% url 'auditoria_front' %}" class="btn btn-primary btn-icon align-self-start">
-          <i class="bi bi-arrow-right-circle"></i> Abrir Auditoría
+    <div class="col-md-4 animate-in delay-4">
+        <a href="{% url 'auditoria_front' %}" class="quick-card">
+            <div class="quick-icon"><i class="bi bi-search"></i></div>
+            <div class="quick-body">
+                <h5>Auditoría</h5>
+                <p>Revisa transacciones individuales o por lote CSV.</p>
+            </div>
+            <i class="bi bi-arrow-right quick-arrow"></i>
         </a>
-      </div>
     </div>
-  </div>
 </div>
 
-<!-- Estilos locales -->
 <style>
-  :root{ --brand: #2000ac; }
+    /* HERO  */
+    .hero {
+        background: var(--surface-header);
+        border-radius: var(--radius-xl);
+        padding: 2.5rem 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+    .hero::before {
+        content: '';
+        position: absolute;
+        width: 300px; height: 300px;
+        background: radial-gradient(circle, rgba(255,255,255,.08), transparent 70%);
+        top: -80px; right: -60px;
+        pointer-events: none;
+    }
+    .hero-content {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+        position: relative;
+        z-index: 1;
+    }
+    .hero-text h1 {
+        color: #fff;
+        font-size: 1.75rem;
+        font-weight: 800;
+        margin-bottom: .35rem;
+    }
+    .text-gradient {
+        background: linear-gradient(135deg, #c4b5fd, #a78bfa, #6c3eff);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    .hero-text p {
+        color: rgba(255,255,255,.55);
+        font-size: .95rem;
+        margin: 0;
+        max-width: 460px;
+    }
+    .hero-actions { display: flex; gap: .75rem; flex-wrap: wrap; }
+    .btn-hero-outline {
+        background: rgba(255,255,255,.08);
+        color: #fff;
+        border: 1px solid rgba(255,255,255,.15);
+        border-radius: var(--radius-sm);
+        padding: .5rem 1.25rem;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all var(--transition);
+    }
+    .btn-hero-outline:hover {
+        background: rgba(255,255,255,.15);
+        color: #fff;
+    }
 
-  /* HERO */
-  .hero{
-    background: linear-gradient(135deg, var(--brand) 0%, #361fff 100%);
-    color:#fff;
-  }
+    /* KPIs */
+    .kpi-card {
+        background: var(--surface-card);
+        border-radius: var(--radius-lg);
+        padding: 1.25rem 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        position: relative;
+        overflow: hidden;
+        box-shadow: var(--shadow-sm);
+        transition: all var(--transition);
+    }
+    .kpi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
+    }
+    .kpi-icon-wrap {
+        width: 52px; height: 52px;
+        border-radius: var(--radius-md);
+        display: grid; place-items: center;
+        font-size: 1.35rem; color: #fff;
+        flex-shrink: 0;
+    }
+    .kpi-pending .kpi-icon-wrap { background: linear-gradient(135deg, #f59e0b, #d97706); }
+    .kpi-fraud .kpi-icon-wrap   { background: linear-gradient(135deg, #ef4444, #dc2626); }
+    .kpi-ok .kpi-icon-wrap      { background: linear-gradient(135deg, #10b981, #059669); }
+    .kpi-label { font-size: .8rem; color: var(--text-secondary); font-weight: 500; }
+    .kpi-value { font-size: 2rem; font-weight: 800; line-height: 1; letter-spacing: -.02em; }
+    .kpi-glow {
+        position: absolute; width: 120px; height: 120px;
+        border-radius: 50%; opacity: .06;
+        right: -20px; top: -20px;
+    }
+    .kpi-pending .kpi-glow { background: #f59e0b; }
+    .kpi-fraud .kpi-glow   { background: #ef4444; }
+    .kpi-ok .kpi-glow      { background: #10b981; }
 
-  /* KPI cards */
-  .kpi-card .kpi-icon{
-    width:54px;height:54px; border-radius:50%;
-    display:grid; place-items:center; font-size:1.25rem; color:#fff;
-  }
-  .kpi-card .kpi-number{ line-height:1; }
-  .kpi-pending .kpi-icon{ background:#ffc107; color:#212529; }
-  .kpi-fraud   .kpi-icon{ background:var(--brand); }
-  .kpi-ok      .kpi-icon{ background:#198754; }
-
-  .quick-card .card-title{ font-weight:600; }
-  .btn-icon i{ margin-right:.35rem; }
-
-  /* Sutilezas de hover */
-  .quick-card{ transition:transform .15s ease, box-shadow .15s ease; }
-  .quick-card:hover{ transform:translateY(-2px); box-shadow:0 .5rem 1rem rgba(0,0,0,.08)!important; }
+    /* Quick cards */
+    .quick-card {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        background: var(--surface-card);
+        border-radius: var(--radius-lg);
+        padding: 1.25rem 1.5rem;
+        text-decoration: none;
+        color: var(--text-primary);
+        transition: all var(--transition);
+        box-shadow: var(--shadow-sm);
+        height: 100%;
+    }
+    .quick-card:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--shadow-lg);
+        color: var(--text-primary);
+    }
+    .quick-icon {
+        width: 44px; height: 44px;
+        background: var(--brand-50);
+        color: var(--brand-600);
+        border-radius: var(--radius-sm);
+        display: grid; place-items: center;
+        font-size: 1.15rem;
+        flex-shrink: 0;
+        transition: all var(--transition);
+    }
+    .quick-card:hover .quick-icon {
+        background: var(--brand-500);
+        color: #fff;
+    }
+    .quick-body { flex: 1; min-width: 0; }
+    .quick-body h5 { font-size: .95rem; font-weight: 700; margin: 0 0 .25rem; }
+    .quick-body p  { font-size: .8rem; color: var(--text-secondary); margin: 0; }
+    .quick-arrow {
+        color: var(--text-secondary);
+        font-size: 1.1rem;
+        transition: transform var(--transition);
+    }
+    .quick-card:hover .quick-arrow { transform: translateX(4px); }
 </style>
 
-<!-- Mini count-up para KPIs -->
+<!-- Count-up animation -->
 <script>
-  document.querySelectorAll('.kpi-number').forEach(el=>{
-    const target = Number(el.dataset.count || 0);
-    const dur = 500; // ms
-    const start = performance.now();
-    const tick = now=>{
-      const t = Math.min(1, (now - start)/dur);
-      el.textContent = Math.round(target * t);
-      if(t < 1) requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-  });
+    document.querySelectorAll('.kpi-value').forEach(el => {
+        const target = Number(el.dataset.count || 0);
+        const dur = 600;
+        const start = performance.now();
+        const tick = now => {
+            const t = Math.min(1, (now - start)/dur);
+            const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic
+            el.textContent = Math.round(target * eased);
+            if (t < 1) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+    });
 </script>
 {% endblock %}

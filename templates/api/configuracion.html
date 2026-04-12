@@ -1,46 +1,111 @@
 {% extends "api/base.html" %}
-{% block title %}Configuración de Umbral{% endblock %}
+{% block title %}Configuración — MyFraudLock{% endblock %}
 
 {% block content %}
-<div class="page-head">
-  <div>
-    <h1 class="h3 mb-1">Configuración</h1>
-    <div class="breadcrumbs"><a href="{% url 'inicio' %}">Inicio</a> / Configuración</div>
-  </div>
-  <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-icon" data-back><i class="bi bi-arrow-left"></i> Volver</a>
+<div class="page-head animate-in">
+    <div>
+        <h1>Configuración</h1>
+        <div class="breadcrumbs"><a href="{% url 'inicio' %}">Inicio</a> / Configuración</div>
+    </div>
+    <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-icon" data-back>
+        <i class="bi bi-arrow-left"></i> Volver
+    </a>
 </div>
 
-<div class="card shadow-sm">
-  <div class="card-header bg-primary text-white"><h5>Política de Umbral</h5></div>
-  <div class="card-body">
-    <form method="post" class="row g-3">
-      {% csrf_token %}
-      <div class="col-md-6">
-        <label for="umbral_score" class="form-label">Umbral de Score de Riesgo (%)</label>
-        <input type="number" class="form-control" id="umbral_score" name="umbral_score"
-               value="{{ config.umbral_score }}" min="0" max="100" required>
-      </div>
-      <div class="col-md-6">
-        <label for="actualizado_por" class="form-label">Usuario que actualiza</label>
-        <select id="actualizado_por" name="actualizado_por" class="form-select">
-          <option value="">-- Seleccionar usuario --</option>
-          {% for usuario in usuarios %}
-            <option value="{{ usuario.id_usuario }}"
-              {% if config.actualizado_por and usuario.id_usuario == config.actualizado_por.id_usuario %}selected{% endif %}>
-              {{ usuario.username }}
-            </option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="col-12">
-        <button type="submit" class="btn btn-primary btn-icon"><i class="bi bi-save"></i> Guardar</button>
-      </div>
-    </form>
-    <hr>
-    <p class="text-muted mb-0">
-      <strong>Última actualización:</strong> {{ config.actualizado_en|date:"d/m/Y H:i" }}<br>
-      <strong>Por:</strong> {{ config.actualizado_por.username|default:"—" }}
-    </p>
-  </div>
+<div class="card animate-in delay-1">
+    <div class="card-header card-brand-header"><h5 class="mb-0"><i class="bi bi-sliders me-2"></i>Política de Umbral</h5></div>
+    <div class="card-body">
+        <form method="post" class="row g-4">
+            {% csrf_token %}
+            <div class="col-md-6">
+                <label for="umbral_score" class="form-label fw-semibold">Umbral de Score de Riesgo</label>
+                <div class="slider-wrap">
+                    <input type="range" class="form-range" id="umbral_range" min="0" max="100"
+                           value="{{ config.umbral_score }}" oninput="syncSlider(this.value)">
+                    <div class="d-flex align-items-center gap-2 mt-2">
+                        <input type="number" class="form-control" id="umbral_score" name="umbral_score"
+                               value="{{ config.umbral_score }}" min="0" max="100" required
+                               style="max-width:100px;" oninput="syncInput(this.value)">
+                        <span class="fw-bold" style="font-size:1.5rem;" id="umbralDisplay">{{ config.umbral_score }}%</span>
+                    </div>
+                </div>
+                <div class="umbral-bar mt-2">
+                    <div class="umbral-fill" id="umbralFill" style="width:{{ config.umbral_score }}%"></div>
+                </div>
+                <div class="d-flex justify-content-between mt-1">
+                    <small class="text-muted">0% — Muy sensible</small>
+                    <small class="text-muted">100% — Solo alta certeza</small>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <label for="actualizado_por" class="form-label fw-semibold">Usuario que actualiza</label>
+                <select id="actualizado_por" name="actualizado_por" class="form-select">
+                    <option value="">-- Seleccionar usuario --</option>
+                    {% for usuario in usuarios %}
+                        <option value="{{ usuario.id_usuario }}"
+                            {% if config.actualizado_por and usuario.id_usuario == config.actualizado_por.id_usuario %}selected{% endif %}>
+                            {{ usuario.username }}
+                        </option>
+                    {% endfor %}
+                </select>
+
+                <div class="card mt-4" style="background:#f8f9fa;">
+                    <div class="card-body">
+                        <p class="text-muted mb-1 small fw-semibold">Última actualización</p>
+                        <p class="mb-1">
+                            <i class="bi bi-calendar3 me-1"></i>
+                            {{ config.actualizado_en|date:"d/m/Y H:i" }}
+                        </p>
+                        <p class="mb-0">
+                            <i class="bi bi-person me-1"></i>
+                            {{ config.actualizado_por.username|default:"—" }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12">
+                <button type="submit" class="btn btn-brand btn-icon">
+                    <i class="bi bi-save"></i> Guardar configuración
+                </button>
+            </div>
+        </form>
+    </div>
 </div>
+
+<style>
+    .slider-wrap .form-range::-webkit-slider-thumb { background: var(--brand-500); }
+    .slider-wrap .form-range::-moz-range-thumb { background: var(--brand-500); }
+
+    .umbral-bar {
+        height: 8px;
+        background: #e5e7eb;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    .umbral-fill {
+        height: 100%;
+        border-radius: 4px;
+        background: linear-gradient(90deg, var(--status-ok), var(--status-pending), var(--status-fraud));
+        transition: width .2s ease;
+    }
+</style>
+
+<script>
+    const rangeEl   = document.getElementById('umbral_range');
+    const inputEl   = document.getElementById('umbral_score');
+    const displayEl = document.getElementById('umbralDisplay');
+    const fillEl    = document.getElementById('umbralFill');
+
+    function syncSlider(v) {
+        inputEl.value = v;
+        displayEl.textContent = v + '%';
+        fillEl.style.width = v + '%';
+    }
+    function syncInput(v) {
+        v = Math.max(0, Math.min(100, parseInt(v) || 0));
+        rangeEl.value = v;
+        displayEl.textContent = v + '%';
+        fillEl.style.width = v + '%';
+    }
+</script>
 {% endblock %}
