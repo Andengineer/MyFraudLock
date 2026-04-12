@@ -104,6 +104,7 @@ def predict_and_explain(payload: dict, top_k: int = 6, aggregate: bool = True):
 
     shap_vals = _explainer.shap_values(X)
     sv = shap_vals[0][0] if isinstance(shap_vals, list) else shap_vals[0]
+    sv = np.squeeze(sv)  # (74,1) → (74,) or keep (74,) as-is
     contrib = {name: float(sv[i]) for i, name in enumerate(_feature_names)}
     if aggregate:
         contrib = _aggregate(contrib)
