@@ -8,9 +8,14 @@
         <h1>Listado de Incidentes</h1>
         <div class="breadcrumbs"><a href="{% url 'inicio' %}">Inicio</a> / Incidentes</div>
     </div>
-    <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-icon" data-back>
-        <i class="bi bi-arrow-left"></i> Volver
-    </a>
+    <div class="d-flex gap-2">
+        <a href="{% url 'incidentes_pdf' %}" class="btn btn-outline-secondary btn-icon">
+            <i class="bi bi-file-earmark-pdf"></i> PDF
+        </a>
+        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-icon" data-back>
+            <i class="bi bi-arrow-left"></i> Volver
+        </a>
+    </div>
 </div>
 
 <!-- Toolbar -->
@@ -67,6 +72,7 @@
                     <th class="sortable" data-sort="score">Score <i class="bi bi-arrow-down-up ms-1"></i></th>
                     <th class="sortable" data-sort="fecha">Fecha <i class="bi bi-arrow-down-up ms-1"></i></th>
                     <th>Estado</th>
+                    <th>Gestionado por</th>
                     <th>Acciones</th>
                 </tr>
                 </thead>
@@ -84,19 +90,21 @@
                         </td>
                         <td class="text-muted">{{ incidente.fecha }}</td>
                         <td>
-                            {% if incidente.estado == "Pendiente" %}
-                                <span class="badge bg-warning text-dark">Pendiente</span>
-                            {% elif incidente.estado == "Falso positivo" %}
-                                <span class="badge bg-success">Falso positivo</span>
-                            {% elif incidente.estado == "Fraude confirmado" %}
-                                <span class="badge bg-danger">Fraude confirmado</span>
-                            {% else %}
-                                <span class="badge bg-secondary">{{ incidente.estado }}</span>
-                            {% endif %}
+                            <span class="badge
+                                {% if incidente.estado == 'Pendiente' %} bg-warning text-dark
+                                {% elif incidente.estado == 'Falso positivo' %} bg-success
+                                {% elif incidente.estado == 'Fraude confirmado' %} bg-danger
+                                {% else %} bg-secondary
+                                {% endif %}">
+                                {{ incidente.estado }}
+                            </span>
+                        </td>
+                        <td class="text-muted small">
+                            {{ incidente.gestionado_por.username|default:"—" }}
                         </td>
                         <td>
-                            <a class="btn btn-sm btn-brand btn-icon"
-                               href="{% url 'incidente_detalle' incidente.id_incidente %}">
+                            <a href="{% url 'incidente_detalle' incidente.id_incidente %}"
+                               class="btn btn-sm btn-brand btn-icon">
                                 <i class="bi bi-pencil-square"></i> Gestionar
                             </a>
                         </td>

@@ -11,9 +11,14 @@
             <a href="{% url 'incidentes_listado' %}">Incidentes</a> / Detalle
         </div>
     </div>
-    <a href="{% url 'incidentes_listado' %}" class="btn btn-outline-secondary btn-icon">
-        <i class="bi bi-arrow-left"></i> Volver
-    </a>
+    <div class="d-flex gap-2">
+        <a href="{% url 'incidente_detalle_pdf' incidente.id_incidente %}" class="btn btn-outline-secondary btn-icon">
+            <i class="bi bi-file-earmark-pdf"></i> PDF
+        </a>
+        <a href="{% url 'incidentes_listado' %}" class="btn btn-outline-secondary btn-icon">
+            <i class="bi bi-arrow-left"></i> Volver
+        </a>
+    </div>
 </div>
 
 <!-- Header card -->
@@ -88,6 +93,10 @@
                     <li class="list-group-item">
                         <strong>Comentario:</strong>
                         {{ incidente.comentario|default:"—" }}
+                    </li>
+                    <li class="list-group-item">
+                        <strong>Gestionado por:</strong>
+                        {{ incidente.gestionado_por.username|default:"Pendiente" }}
                     </li>
                 </ul>
             </div>

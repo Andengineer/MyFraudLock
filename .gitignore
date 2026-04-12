@@ -36,3 +36,7 @@ Thumbs.db
 # api/ml/*.keras
 # api/ml/*.npy
 # api/ml/*.joblib
+
+thesis_documentation.md
+arquitectura_logica.mmd
+arquitectura_fisica.mmd

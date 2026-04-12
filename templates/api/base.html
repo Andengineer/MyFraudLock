@@ -537,6 +537,11 @@
     {% if current_usuario %}
     <div class="sidebar-section">
         <div class="sidebar-section-title">Sistema</div>
+        {% if current_usuario.rol == 'ADMIN' %}
+            <a class="sidebar-link" href="{% url 'usuarios_list' %}" data-nav>
+                <i class="bi bi-people"></i> Usuarios
+            </a>
+        {% endif %}
         {% if current_usuario.rol == 'EJECUTIVO' or current_usuario.rol == 'ADMIN' %}
             <a class="sidebar-link" href="{% url 'configuracion_front' %}" data-nav>
                 <i class="bi bi-sliders"></i> Configuración

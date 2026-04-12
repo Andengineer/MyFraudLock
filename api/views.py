@@ -21,6 +21,12 @@ from rest_framework.views import APIView
 from .decorators import require_roles, usuario_login_required
 from .ml_utils import predict_fraud
 from .models import Configuracion, Incidente, Transaccion, Usuario
+from .notifications import notify_fraud_confirmed, notify_new_incident
+from .pdf_utils import (
+    build_dashboard_pdf,
+    build_incidente_detalle_pdf,
+    build_incidentes_pdf,
+)
 from .serializers import (
     ConfiguracionSerializer,
     IncidenteSerializer,
@@ -74,12 +80,13 @@ class TransaccionViewSet(viewsets.ModelViewSet):
             id=1, defaults={"umbral_score": 70}
         )
         if score >= config.umbral_score:
-            Incidente.objects.create(
+            incidente = Incidente.objects.create(
                 id_transaccion=transaccion,
                 score_riesgo=score,
                 explicabilidad=explicabilidad,
                 estado="Pendiente",
             )
+            notify_new_incident(incidente)
 
         headers = self.get_success_headers(serializer.data)
         return Response(
@@ -278,7 +285,15 @@ def incidente_detalle_view(request, incidente_id):
         if nuevo_estado in ("Fraude confirmado", "Falso positivo"):
             incidente.estado = nuevo_estado
             incidente.comentario = comentario
+            
+            # Registrar quién gestionó el incidente
+            usuario_id = request.session.get('usuario_id')
+            if usuario_id:
+                incidente.gestionado_por_id = usuario_id
+                
             incidente.save()
+            if nuevo_estado == "Fraude confirmado":
+                notify_fraud_confirmed(incidente)
             messages.success(
                 request,
                 f"Incidente #{incidente.id_incidente} actualizado a {nuevo_estado}.",
@@ -404,14 +419,18 @@ def configuracion_front(request):
             messages.error(request, "Umbral inválido.")
             return redirect("configuracion_front")
 
-        id_usuario = request.POST.get("actualizado_por")
         config.umbral_score = nuevo_umbral
-        if id_usuario:
+        config.notificaciones_email = bool(request.POST.get("notificaciones_email"))
+        
+        # Asignar usuario de la sesión actual
+        usuario_id = request.session.get('usuario_id')
+        if usuario_id:
             try:
-                usuario = Usuario.objects.get(id_usuario=id_usuario)
+                usuario = Usuario.objects.get(id_usuario=usuario_id)
                 config.actualizado_por = usuario
             except Usuario.DoesNotExist:
                 pass
+                
         config.save()
         messages.success(request, "Configuración actualizada correctamente.")
         return redirect("configuracion_front")
@@ -419,7 +438,7 @@ def configuracion_front(request):
     return render(
         request,
         "api/configuracion.html",
-        {"config": config, "usuarios": Usuario.objects.all()},
+        {"config": config},
     )
 
 
@@ -586,3 +605,174 @@ def register_view(request):
         "roles": allowed_roles,
         "selected_rol": "ANALISTA",
     })
+
+
+# ---------------------------------------------------------------------------
+# Vistas HTML — Gestión de Usuarios (solo ADMIN)
+# ---------------------------------------------------------------------------
+
+@usuario_login_required
+@require_roles()
+def usuarios_list_view(request):
+    """Listado de todos los usuarios con estadísticas."""
+    usuarios = Usuario.objects.all().order_by('-id_usuario')
+    ctx = {
+        "usuarios": usuarios,
+        "activos": usuarios.filter(activo=True).count(),
+        "inactivos": usuarios.filter(activo=False).count(),
+        "admins": usuarios.filter(rol="ADMIN").count(),
+    }
+    return render(request, "api/usuarios.html", ctx)
+
+
+@usuario_login_required
+@require_roles()
+def usuario_create_view(request):
+    """Crear un nuevo usuario (admin)."""
+    roles = [
+        {"value": "ADMIN", "label": "Administrador"},
+        {"value": "ANALISTA", "label": "Analista de Incidentes"},
+        {"value": "EJECUTIVO", "label": "Ejecutivo (solo lectura)"},
+    ]
+
+    if request.method == "POST":
+        username = (request.POST.get("username") or "").strip()
+        email = (request.POST.get("email") or "").strip().lower()
+        telefono = (request.POST.get("telefono") or "").strip()
+        password = (request.POST.get("password") or "").strip()
+        password2 = (request.POST.get("password2") or "").strip()
+        rol = (request.POST.get("rol") or "ANALISTA").strip().upper()
+
+        if not username or not email or not password:
+            messages.error(request, "Completa todos los campos requeridos.")
+        elif password != password2:
+            messages.error(request, "Las contraseñas no coinciden.")
+        elif len(password) < 6:
+            messages.error(request, "La contraseña debe tener al menos 6 caracteres.")
+        elif Usuario.objects.filter(username=username).exists():
+            messages.error(request, "Nombre de usuario ya en uso.")
+        elif Usuario.objects.filter(email=email).exists():
+            messages.error(request, "Email ya registrado.")
+        else:
+            u = Usuario(username=username, email=email, telefono=telefono or None, rol=rol)
+            u.set_password(password)
+            u.save()
+            messages.success(request, f"Usuario '{username}' creado correctamente.")
+            return redirect("usuarios_list")
+
+    return render(request, "api/usuario_form.html", {
+        "editing": False,
+        "roles": roles,
+    })
+
+
+@usuario_login_required
+@require_roles()
+def usuario_edit_view(request, usuario_id):
+    """Editar datos de un usuario (no cambia password)."""
+    usuario = get_object_or_404(Usuario, id_usuario=usuario_id)
+    roles = [
+        {"value": "ADMIN", "label": "Administrador"},
+        {"value": "ANALISTA", "label": "Analista de Incidentes"},
+        {"value": "EJECUTIVO", "label": "Ejecutivo (solo lectura)"},
+    ]
+
+    if request.method == "POST":
+        email = (request.POST.get("email") or "").strip().lower()
+        telefono = (request.POST.get("telefono") or "").strip()
+        rol = (request.POST.get("rol") or usuario.rol).strip().upper()
+        activo = bool(request.POST.get("activo"))
+
+        if not email:
+            messages.error(request, "El email es requerido.")
+        elif Usuario.objects.filter(email=email).exclude(id_usuario=usuario_id).exists():
+            messages.error(request, "Email ya registrado por otro usuario.")
+        else:
+            usuario.email = email
+            usuario.telefono = telefono or None
+            usuario.rol = rol
+            usuario.activo = activo
+            usuario.save()
+            messages.success(request, f"Usuario '{usuario.username}' actualizado.")
+            return redirect("usuarios_list")
+
+    return render(request, "api/usuario_form.html", {
+        "editing": True,
+        "usuario": usuario,
+        "roles": roles,
+    })
+
+
+@usuario_login_required
+@require_roles()
+def usuario_toggle_view(request, usuario_id):
+    """Activar/desactivar un usuario (soft delete)."""
+    if request.method == "POST":
+        usuario = get_object_or_404(Usuario, id_usuario=usuario_id)
+        # No permitir desactivar al propio admin
+        if usuario.id_usuario == request.session.get("usuario_id"):
+            messages.error(request, "No puedes desactivarte a ti mismo.")
+        else:
+            usuario.activo = not usuario.activo
+            usuario.save(update_fields=["activo"])
+            action_text = "activado" if usuario.activo else "desactivado"
+            messages.success(request, f"Usuario '{usuario.username}' {action_text}.")
+    return redirect("usuarios_list")
+
+
+@usuario_login_required
+@require_roles()
+def usuario_reset_password_view(request, usuario_id):
+    """Resetear la contraseña de un usuario."""
+    if request.method == "POST":
+        usuario = get_object_or_404(Usuario, id_usuario=usuario_id)
+        new_password = (request.POST.get("new_password") or "").strip()
+
+        if len(new_password) < 6:
+            messages.error(request, "La contraseña debe tener al menos 6 caracteres.")
+        else:
+            usuario.set_password(new_password)
+            usuario.save(update_fields=["password"])
+            messages.success(
+                request,
+                f"Contraseña de '{usuario.username}' reseteada correctamente.",
+            )
+    return redirect("usuarios_list")
+
+
+# ---------------------------------------------------------------------------
+# Vistas HTML — Exportación PDF
+# ---------------------------------------------------------------------------
+
+@usuario_login_required
+@require_roles('EJECUTIVO')
+def dashboard_pdf_view(request):
+    """Exporta el dashboard como PDF."""
+    pendientes = Incidente.objects.filter(estado="Pendiente").count()
+    confirmados = Incidente.objects.filter(estado="Fraude confirmado").count()
+    falsos = Incidente.objects.filter(estado="Falso positivo").count()
+    recientes = Incidente.objects.order_by("-fecha")[:20]
+
+    return build_dashboard_pdf({
+        "pendientes": pendientes,
+        "confirmados": confirmados,
+        "falsos": falsos,
+        "recientes": recientes,
+    })
+
+
+@usuario_login_required
+@require_roles('ANALISTA')
+def incidentes_pdf_view(request):
+    """Exporta la lista de incidentes como PDF."""
+    incidentes = Incidente.objects.all().order_by('-fecha')
+    return build_incidentes_pdf(incidentes)
+
+
+@usuario_login_required
+@require_roles('ANALISTA')
+def incidente_detalle_pdf_view(request, incidente_id):
+    """Exporta un incidente individual como PDF."""
+    incidente = get_object_or_404(Incidente, id_incidente=incidente_id)
+    return build_incidente_detalle_pdf(incidente)
+

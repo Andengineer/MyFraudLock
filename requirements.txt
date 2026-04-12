@@ -1,12 +1,17 @@
+# Web framework
 Django==5.2.6
 djangorestframework
 django-filter
 whitenoise
 gunicorn
 
+# ML
 numpy
 pandas
 scikit-learn
 joblib
 shap
 tensorflow
+
+# PDF export
+reportlab

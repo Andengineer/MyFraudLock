@@ -1,0 +1,117 @@
+{% extends "api/base.html" %}
+{% block title %}{% if editing %}Editar{% else %}Nuevo{% endif %} Usuario — MyFraudLock{% endblock %}
+
+{% block content %}
+<div class="page-head animate-in">
+    <div>
+        <h1>{% if editing %}Editar usuario: {{ usuario.username }}{% else %}Nuevo usuario{% endif %}</h1>
+        <div class="breadcrumbs">
+            <a href="{% url 'inicio' %}">Inicio</a> /
+            <a href="{% url 'usuarios_list' %}">Usuarios</a> /
+            {% if editing %}Editar{% else %}Crear{% endif %}
+        </div>
+    </div>
+    <a href="{% url 'usuarios_list' %}" class="btn btn-outline-secondary btn-icon">
+        <i class="bi bi-arrow-left"></i> Volver
+    </a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card animate-in delay-1">
+            <div class="card-header card-brand-header">
+                <h6 class="mb-0">
+                    <i class="bi bi-{% if editing %}pencil{% else %}person-plus{% endif %} me-1"></i>
+                    {% if editing %}Editar datos{% else %}Datos del nuevo usuario{% endif %}
+                </h6>
+            </div>
+            <div class="card-body">
+                <form method="post" class="row g-3">
+                    {% csrf_token %}
+
+                    <div class="col-md-6">
+                        <label for="username" class="form-label fw-semibold">
+                            Username <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" class="form-control" id="username" name="username"
+                               value="{{ usuario.username|default:'' }}" required
+                               {% if editing %}readonly style="background:#f3f4f6; cursor:not-allowed;"{% endif %}>
+                        {% if editing %}
+                            <div class="form-text text-muted">El nombre de usuario no se puede cambiar.</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="email" class="form-label fw-semibold">
+                            Email <span class="text-danger">*</span>
+                        </label>
+                        <input type="email" class="form-control" id="email" name="email"
+                               value="{{ usuario.email|default:'' }}" required>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label for="rol" class="form-label fw-semibold">
+                            Rol <span class="text-danger">*</span>
+                        </label>
+                        <select class="form-select" id="rol" name="rol" required>
+                            {% for r in roles %}
+                                <option value="{{ r.value }}"
+                                    {% if editing and usuario.rol == r.value %}selected{% endif %}
+                                    {% if not editing and r.value == 'ANALISTA' %}selected{% endif %}>
+                                    {{ r.label }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label for="telefono" class="form-label fw-semibold">Teléfono</label>
+                        <input type="text" class="form-control" id="telefono" name="telefono"
+                               value="{{ usuario.telefono|default:'' }}" placeholder="999888777">
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Estado</label>
+                        {% if editing %}
+                            <div class="form-check form-switch mt-2">
+                                <input class="form-check-input" type="checkbox" id="activo" name="activo"
+                                       {% if usuario.activo %}checked{% endif %}>
+                                <label class="form-check-label" for="activo">Activo</label>
+                            </div>
+                        {% else %}
+                            <div class="mt-2">
+                                <span class="badge bg-success">Se creará activo</span>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    {% if not editing %}
+                    <div class="col-md-6">
+                        <label for="password" class="form-label fw-semibold">
+                            Contraseña <span class="text-danger">*</span>
+                        </label>
+                        <input type="password" class="form-control" id="password" name="password"
+                               minlength="6" required placeholder="Mínimo 6 caracteres">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="password2" class="form-label fw-semibold">
+                            Repetir contraseña <span class="text-danger">*</span>
+                        </label>
+                        <input type="password" class="form-control" id="password2" name="password2"
+                               minlength="6" required>
+                    </div>
+                    {% endif %}
+
+                    <div class="col-12 mt-4 d-flex gap-2">
+                        <button type="submit" class="btn btn-brand btn-icon">
+                            <i class="bi bi-save"></i>
+                            {% if editing %}Guardar cambios{% else %}Crear usuario{% endif %}
+                        </button>
+                        <a href="{% url 'usuarios_list' %}" class="btn btn-outline-secondary">Cancelar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

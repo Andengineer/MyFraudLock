@@ -56,8 +56,9 @@ class Incidente(models.Model):
     """Incidente generado cuando el score supera el umbral."""
 
     id_incidente = models.AutoField(primary_key=True)
-    id_usuario = models.ForeignKey(
-        'Usuario', on_delete=models.SET_NULL, null=True, blank=True
+    gestionado_por = models.ForeignKey(
+        'Usuario', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='incidentes_gestionados'
     )
     id_transaccion = models.OneToOneField(
         'Transaccion', on_delete=models.CASCADE
@@ -79,6 +80,10 @@ class Configuracion(models.Model):
     """Configuración global del sistema (umbral, etc.)."""
 
     umbral_score = models.IntegerField(default=70)
+    notificaciones_email = models.BooleanField(
+        default=True,
+        help_text="Enviar emails cuando se detecta fraude",
+    )
     actualizado_en = models.DateTimeField(auto_now=True)
     actualizado_por = models.ForeignKey(
         'Usuario', on_delete=models.SET_NULL, null=True, blank=True
