@@ -3,13 +3,13 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     # REST ViewSets
     UsuarioViewSet, TransaccionViewSet, IncidenteViewSet, ConfiguracionViewSet,
-    AuditoriaView,
+    SimulacionView,
     # HTML views — Auth
     login_view, logout_view, register_view,
     # HTML views — Pages
     inicio_view, ayuda_view,
     dashboard_view, incidentes_view, incidente_detalle_view,
-    auditoria_view, auditoria_lote_view, configuracion_front,
+    simulacion_view, simulacion_lote_view, configuracion_front,
     # HTML views — User management (ADMIN)
     usuarios_list_view, usuario_create_view, usuario_edit_view,
     usuario_toggle_view, usuario_reset_password_view,
@@ -34,9 +34,9 @@ urlpatterns = [
     path('dashboard/', dashboard_view, name='dashboard'),
     path('incidentes-listado/', incidentes_view, name='incidentes_listado'),
     path('incidentes/<int:incidente_id>/detalle/', incidente_detalle_view, name='incidente_detalle'),
-    path('auditoria/', auditoria_view, name='auditoria_front'),
-    path('auditoria-api/', AuditoriaView.as_view(), name='auditoria_api'),
-    path('auditoria-lote/', auditoria_lote_view, name='auditoria_lote'),
+    path('simulacion/', simulacion_view, name='simulacion_front'),
+    path('simulacion-api/', SimulacionView.as_view(), name='simulacion_api'),
+    path('simulacion-lote/', simulacion_lote_view, name='simulacion_lote'),
     path('configuracion-front/', configuracion_front, name='configuracion_front'),
     path('ayuda/', ayuda_view, name='ayuda'),
 

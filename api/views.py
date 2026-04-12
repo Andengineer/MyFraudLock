@@ -144,8 +144,8 @@ class IncidenteViewSet(viewsets.ModelViewSet):
         return Response({"items": items})
 
 
-class AuditoriaView(APIView):
-    """Auditoría temporal vía API REST (no persiste)."""
+class SimulacionView(APIView):
+    """Simulación de riesgo temporal vía API REST (no persiste)."""
 
     def post(self, request):
         data = request.data
@@ -304,14 +304,14 @@ def incidente_detalle_view(request, incidente_id):
 
 
 # ---------------------------------------------------------------------------
-# Vistas HTML — Auditoría
+# Vistas HTML — Simulación de Riesgo
 # ---------------------------------------------------------------------------
 
 @usuario_login_required
 @csrf_exempt
 @require_roles('ANALISTA', 'EJECUTIVO')
-def auditoria_view(request):
-    """Auditoría individual — formulario + resultado."""
+def simulacion_view(request):
+    """Simulación de riesgo individual — formulario + resultado."""
     contexto = {"active_tab": "individual"}
 
     if request.method == "POST":
@@ -319,7 +319,7 @@ def auditoria_view(request):
             importe = float(request.POST.get("importe") or 0)
         except ValueError:
             messages.error(request, "Importe inválido.")
-            return render(request, "api/auditoria.html", contexto)
+            return render(request, "api/simulacion.html", contexto)
 
         payload = {
             "importe": importe,
@@ -335,22 +335,22 @@ def auditoria_view(request):
             "resultado": {"score_riesgo": score, "explicabilidad": explicabilidad},
             "active_tab": "individual",
         })
-        messages.success(request, "Auditoría individual procesada.")
+        messages.success(request, "Simulación de riesgo individual procesada.")
 
-    return render(request, "api/auditoria.html", contexto)
+    return render(request, "api/simulacion.html", contexto)
 
 
 @usuario_login_required
 @require_roles('ANALISTA', 'EJECUTIVO')
-def auditoria_lote_view(request):
-    """Auditoría por lote — carga CSV y procesa cada fila."""
+def simulacion_lote_view(request):
+    """Simulación de riesgo por lote — carga CSV y procesa cada fila."""
     contexto = {"active_tab": "lote"}
 
     if request.method == "POST":
         archivo = request.FILES.get("archivo")
         if not archivo:
             messages.error(request, "Debes subir un archivo CSV válido.")
-            return render(request, "api/auditoria.html", contexto)
+            return render(request, "api/simulacion.html", contexto)
 
         try:
             data = archivo.read().decode("utf-8", errors="ignore")
@@ -363,7 +363,7 @@ def auditoria_lote_view(request):
                     request,
                     "Cabeceras inválidas. Se esperan: importe,category,state,gender,age,city_pop",
                 )
-                return render(request, "api/auditoria.html", contexto)
+                return render(request, "api/simulacion.html", contexto)
 
             resultados = []
             for row in reader:
@@ -394,12 +394,12 @@ def auditoria_lote_view(request):
             contexto.update({"resultados": resultados, "active_tab": "lote"})
             messages.success(
                 request,
-                f"Auditoría por lote procesada. Filas válidas: {len(resultados)}",
+                f"Simulación por lote procesada. Filas válidas: {len(resultados)}",
             )
         except Exception as e:
             messages.error(request, f"Error procesando el CSV: {e}")
 
-    return render(request, "api/auditoria.html", contexto)
+    return render(request, "api/simulacion.html", contexto)
 
 
 # ---------------------------------------------------------------------------

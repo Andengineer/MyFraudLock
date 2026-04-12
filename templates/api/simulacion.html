@@ -1,11 +1,11 @@
 {% extends "api/base.html" %}
-{% block title %}Auditoría — MyFraudLock{% endblock %}
+{% block title %}Simulación de Riesgo — MyFraudLock{% endblock %}
 
 {% block content %}
 <div class="page-head animate-in">
     <div>
-        <h1>Auditoría</h1>
-        <div class="breadcrumbs"><a href="{% url 'inicio' %}">Inicio</a> / Auditoría</div>
+        <h1>Simulación de Riesgo</h1>
+        <div class="breadcrumbs"><a href="{% url 'inicio' %}">Inicio</a> / Simulación de Riesgo</div>
     </div>
     <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-icon" data-back>
         <i class="bi bi-arrow-left"></i> Volver
@@ -36,7 +36,7 @@
                 <div class="card">
                     <div class="card-header card-brand-header"><h5 class="mb-0">Ingresar datos</h5></div>
                     <div class="card-body">
-                        <form method="post" class="row g-3" action="{% url 'auditoria_front' %}">
+                        <form method="post" class="row g-3" action="{% url 'simulacion_front' %}">
                             {% csrf_token %}
                             <div class="col-md-4">
                                 <label class="form-label" for="importe">Importe</label>
@@ -69,7 +69,7 @@
                             </div>
                             <div class="col-12">
                                 <button class="btn btn-brand btn-icon" type="submit">
-                                    <i class="bi bi-search"></i> Auditar
+                                    <i class="bi bi-search"></i> Simular
                                 </button>
                             </div>
                         </form>
@@ -156,7 +156,7 @@
 
                 <form method="post" enctype="multipart/form-data"
                       class="d-flex gap-2 align-items-center flex-wrap"
-                      action="{% url 'auditoria_lote' %}">
+                      action="{% url 'simulacion_lote' %}">
                     {% csrf_token %}
                     <input class="form-control" type="file" name="archivo" accept=".csv" required
                            style="max-width:360px;">

@@ -24,7 +24,7 @@ La siguiente tabla presenta la especificación formal de los requisitos funciona
 | **RF-09** | El sistema debe implementar un esquema de control de acceso basado en tres roles jerárquicos: Administrador (ADMIN), Analista de Fraude (ANALISTA) y Ejecutivo (EJECUTIVO), donde el rol de Administrador hereda acceso total a todos los módulos. | Alta |
 | **RF-10** | El sistema debe restringir el acceso al módulo de Dashboard exclusivamente a los usuarios con rol Ejecutivo o Administrador. | Alta |
 | **RF-11** | El sistema debe restringir el acceso al módulo de Gestión de Incidentes (listado y detalle) exclusivamente a los usuarios con rol Analista o Administrador. | Alta |
-| **RF-12** | El sistema debe restringir el acceso al módulo de Auditoría (individual y por lote) a los usuarios con rol Analista, Ejecutivo o Administrador. | Alta |
+| **RF-12** | El sistema debe restringir el acceso al módulo de Simulación de Riesgo (individual y por lote) a los usuarios con rol Analista, Ejecutivo o Administrador. | Alta |
 | **RF-13** | El sistema debe restringir el acceso al módulo de Configuración del Sistema exclusivamente a los usuarios con rol Ejecutivo o Administrador. | Alta |
 | **RF-14** | El sistema debe restringir el acceso al módulo de Gestión de Usuarios exclusivamente a los usuarios con rol Administrador. | Alta |
 | **RF-15** | En caso de que un usuario autenticado intente acceder a un módulo para el cual no posee los permisos requeridos, el sistema debe redirigirlo a la página de inicio y mostrar un mensaje de error indicando la denegación de acceso. | Media |
@@ -50,13 +50,13 @@ La siguiente tabla presenta la especificación formal de los requisitos funciona
 | **RF-25** | El sistema debe registrar de manera inmutable el identificador del usuario que gestionó cada incidente, creando una pista de auditoría permanente que vincule al analista responsable con la decisión tomada. | Alta |
 | **RF-26** | El sistema debe exponer un endpoint REST para polling (`GET /api/incidentes/since/?after_id=N`) que retorne los incidentes creados después de un identificador dado, permitiendo la actualización en tiempo casi real del listado sin recargar la página. | Media |
 
-### 1.5 Módulo de Auditoría Predictiva
+### 1.5 Módulo de Simulación de Riesgo
 
 | ID | Requisito Funcional | Prioridad |
 |----|---------------------|-----------|
-| **RF-27** | El sistema debe permitir la auditoría individual de una transacción ingresando manualmente sus datos (importe, categoría, estado, género, edad y población de la ciudad), retornando el score de riesgo y los factores de explicabilidad sin persistir el resultado en la base de datos. | Alta |
-| **RF-28** | El sistema debe permitir la auditoría masiva por lote mediante la carga de un archivo CSV con las columnas requeridas (importe, category, state, gender, age, city_pop), procesando cada fila a través del modelo de inferencia y presentando los resultados ordenados por score de riesgo descendente. | Alta |
-| **RF-29** | El sistema debe validar que el archivo CSV de auditoría por lote contenga las cabeceras requeridas, informando al usuario inmediatamente si el formato es incorrecto. | Media |
+| **RF-27** | El sistema debe permitir la simulación de riesgo individual de una transacción ingresando manualmente sus datos (importe, categoría, estado, género, edad y población de la ciudad), retornando el score de riesgo y los factores de explicabilidad sin persistir el resultado en la base de datos. | Alta |
+| **RF-28** | El sistema debe permitir la simulación de riesgo masiva por lote mediante la carga de un archivo CSV con las columnas requeridas (importe, category, state, gender, age, city_pop), procesando cada fila a través del modelo de inferencia y presentando los resultados ordenados por score de riesgo descendente. | Alta |
+| **RF-29** | El sistema debe validar que el archivo CSV de simulación por lote contenga las cabeceras requeridas, informando al usuario inmediatamente si el formato es incorrecto. | Media |
 | **RF-30** | El sistema debe manejar de forma robusta las filas del archivo CSV que contengan datos inválidos (valores no numéricos, campos vacíos), omitiendo las filas erróneas y continuando el procesamiento de las restantes. | Media |
 
 ### 1.6 Módulo de Administración de Usuarios
@@ -111,7 +111,7 @@ La siguiente tabla define los requisitos no funcionales del sistema, clasificado
 | ID | Requisito No Funcional | Categoría |
 |----|------------------------|-----------|
 | **RNF-01** | El tiempo de respuesta de la inferencia del modelo de Deep Learning no debe exceder los 500 milisegundos por transacción individual, medido desde la recepción de la petición POST hasta la emisión de la respuesta HTTP 201. | Rendimiento |
-| **RNF-02** | El sistema debe procesar archivos CSV de auditoría por lote con un mínimo de 500 registros sin degradación perceptible de la experiencia de usuario (tiempo total inferior a 60 segundos). | Rendimiento |
+| **RNF-02** | El sistema debe procesar archivos CSV de simulación de riesgo por lote con un mínimo de 500 registros sin degradación perceptible de la experiencia de usuario (tiempo total inferior a 60 segundos). | Rendimiento |
 | **RNF-03** | Todas las comunicaciones entre el cliente y el servidor en entorno de producción deben realizarse exclusivamente bajo protocolo HTTPS con certificación TLS 1.2 o superior, con redirección automática de tráfico HTTP. | Seguridad |
 | **RNF-04** | Las contraseñas de los usuarios deben almacenarse utilizando el algoritmo de hashing PBKDF2 con salt aleatorio, proporcionado por `django.contrib.auth.hashers`, impidiendo la lectura de contraseñas en texto plano desde la base de datos. | Seguridad |
 | **RNF-05** | El sistema debe implementar protección contra ataques Cross-Site Request Forgery (CSRF) en todos los formularios de mutación de datos, así como las cabeceras de seguridad `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff` y `X-XSS-Protection`. | Seguridad |
