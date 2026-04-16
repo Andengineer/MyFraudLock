@@ -203,7 +203,8 @@
                             data-bs-target="#confirmModal">
                             <i class="bi bi-check2-circle me-2"></i> Confirmar Resolución
                         </button>
-                        <a href="{% url 'incidentes_listado' %}" class="btn btn-light border px-4 shadow-sm text-secondary">Volver</a>
+                        <a href="{% url 'incidentes_listado' %}"
+                            class="btn btn-light border px-4 shadow-sm text-secondary">Volver</a>
                     </div>
                 </form>
             </div>
@@ -295,7 +296,7 @@
                 const sign = f.impact >= 0 ? '+' : '';
                 return `
                     <div style="display:flex; align-items:center; gap:.75rem; margin-bottom:.5rem;">
-                        <span style="width:100px; font-size:.8rem; font-weight:600; text-align:right; flex-shrink:0; color:var(--text-secondary);">${f.feature}</span>
+                        <span style="width:130px; font-size:.75rem; font-weight:600; text-align:right; flex-shrink:0; color:var(--text-secondary); white-space:nowrap; text-overflow:ellipsis; overflow:hidden;" title="${f.display_name}">${f.display_name}</span>
                         <div style="flex:1; height:22px; background:#f3f4f6; border-radius:4px; overflow:hidden; position:relative;">
                             <div style="width:${pct}%; height:100%; background:${color}; border-radius:4px; transition:width .5s ease-out;"></div>
                         </div>
