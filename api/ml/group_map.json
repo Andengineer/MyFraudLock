@@ -1,68 +1,109 @@
 {
-  "cat__category_entertainment": "category",
-  "cat__category_food_dining": "category",
-  "cat__category_gas_transport": "category",
-  "cat__category_grocery_net": "category",
-  "cat__category_grocery_pos": "category",
-  "cat__category_health_fitness": "category",
-  "cat__category_home": "category",
-  "cat__category_kids_pets": "category",
-  "cat__category_misc_net": "category",
-  "cat__category_misc_pos": "category",
-  "cat__category_personal_care": "category",
-  "cat__category_shopping_net": "category",
-  "cat__category_shopping_pos": "category",
-  "cat__category_travel": "category",
-  "cat__state_ate": "state",
-  "cat__state_bambamarca": "state",
-  "cat__state_barranco": "state",
-  "cat__state_belen": "state",
-  "cat__state_brena": "state",
-  "cat__state_cajamarca": "state",
-  "cat__state_callao": "state",
-  "cat__state_calleria": "state",
-  "cat__state_cerro_azul": "state",
-  "cat__state_cerro_colorado": "state",
-  "cat__state_chachapoyas": "state",
-  "cat__state_chiclayo": "state",
-  "cat__state_chorrillos": "state",
-  "cat__state_cusco": "state",
-  "cat__state_huancayo": "state",
-  "cat__state_huanuco": "state",
-  "cat__state_ica": "state",
-  "cat__state_independencia": "state",
-  "cat__state_jesus_maria": "state",
-  "cat__state_jose_leonardo_ortiz": "state",
-  "cat__state_jose_luis_bustamante_y_rivero": "state",
-  "cat__state_la_esperanza": "state",
-  "cat__state_la_molina": "state",
-  "cat__state_la_victoria": "state",
-  "cat__state_lima": "state",
-  "cat__state_los_olivos": "state",
-  "cat__state_magdalena_del_mar": "state",
-  "cat__state_miraflores": "state",
-  "cat__state_pachacamac": "state",
-  "cat__state_paita": "state",
-  "cat__state_piura": "state",
-  "cat__state_pueblo_libre": "state",
-  "cat__state_puente_piedra": "state",
-  "cat__state_rimac": "state",
-  "cat__state_rupa_rupa": "state",
-  "cat__state_san_borja": "state",
-  "cat__state_san_isidro": "state",
-  "cat__state_san_juan_de_lurigancho": "state",
-  "cat__state_san_juan_de_miraflores": "state",
-  "cat__state_san_martin_de_porres": "state",
-  "cat__state_san_miguel": "state",
-  "cat__state_san_vicente_de_canete": "state",
-  "cat__state_santa_anita": "state",
-  "cat__state_santiago_de_surco": "state",
-  "cat__state_surquillo": "state",
-  "cat__state_tambopata": "state",
-  "cat__state_tumbes": "state",
-  "cat__state_veintiseis_de_octubre": "state",
-  "cat__state_villa_el_salvador": "state",
-  "cat__state_villa_maria_del_triunfo": "state",
-  "cat__gender_f": "gender",
-  "cat__gender_m": "gender"
+  "transaction": [
+    "transaction_amount"
+  ],
+  "amt": [
+    "amt_log1p"
+  ],
+  "hour": [
+    "hour",
+    "hour_sin",
+    "hour_cos"
+  ],
+  "day": [
+    "day_of_week",
+    "day_sin",
+    "day_cos"
+  ],
+  "month": [
+    "month",
+    "month_sin",
+    "month_cos"
+  ],
+  "is": [
+    "is_weekend",
+    "is_new_customer",
+    "is_high_risk_hour"
+  ],
+  "eci": [
+    "eci_code"
+  ],
+  "has": [
+    "has_3ds",
+    "has_discount"
+  ],
+  "city": [
+    "city_population"
+  ],
+  "num": [
+    "num_items",
+    "num_installments"
+  ],
+  "previous": [
+    "previous_failed_attempts"
+  ],
+  "days": [
+    "days_since_first_purchase"
+  ],
+  "avg": [
+    "avg_historical_amount"
+  ],
+  "amount": [
+    "amount_deviation"
+  ],
+  "card": [
+    "card_brand_amex",
+    "card_brand_diners",
+    "card_brand_mastercard",
+    "card_brand_other",
+    "card_brand_visa",
+    "card_type_credit",
+    "card_type_debit"
+  ],
+  "issuer": [
+    "issuer_bank_banbif",
+    "issuer_bank_bbva",
+    "issuer_bank_bcp",
+    "issuer_bank_caja_piura",
+    "issuer_bank_cencosud",
+    "issuer_bank_falabella",
+    "issuer_bank_financiera_oh",
+    "issuer_bank_interbank",
+    "issuer_bank_nacion",
+    "issuer_bank_otros",
+    "issuer_bank_ripley",
+    "issuer_bank_scotiabank"
+  ],
+  "payment": [
+    "payment_channel_app",
+    "payment_channel_mobile",
+    "payment_channel_web"
+  ],
+  "customer": [
+    "customer_region_ancash",
+    "customer_region_arequipa",
+    "customer_region_cajamarca",
+    "customer_region_callao",
+    "customer_region_cusco",
+    "customer_region_huanuco",
+    "customer_region_ica",
+    "customer_region_junin",
+    "customer_region_la_libertad",
+    "customer_region_lambayeque",
+    "customer_region_lima",
+    "customer_region_loreto",
+    "customer_region_piura",
+    "customer_region_san_martin",
+    "customer_region_tacna",
+    "customer_region_ucayali"
+  ],
+  "category": [
+    "category_accesorios",
+    "category_aceites_lubricantes",
+    "category_cascos",
+    "category_electronica",
+    "category_indumentaria_moto",
+    "category_otros",
+    "category_repuestos_moto"
+  ]
 }

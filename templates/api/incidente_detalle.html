@@ -22,34 +22,36 @@
 </div>
 
 <!-- Header card -->
-<div class="card mb-4 animate-in delay-1">
-    <div class="card-header d-flex justify-content-between align-items-center
-        {% if incidente.estado == 'Pendiente' %} bg-warning-subtle
-        {% elif incidente.estado == 'Falso positivo' %} bg-success-subtle
-        {% elif incidente.estado == 'Fraude confirmado' %} bg-danger-subtle
-        {% else %} bg-secondary-subtle
-        {% endif %}">
+<div class="card mb-4 border-0 shadow-sm animate-in delay-1" style="border-radius: var(--radius-lg);">
+    <div class="card-header border-0 d-flex justify-content-between align-items-center py-3
+        {% if incidente.estado == 'Pendiente' %} bg-warning
+        {% elif incidente.estado == 'Falso positivo' %} bg-success text-white
+        {% elif incidente.estado == 'Fraude confirmado' %} bg-danger text-white
+        {% else %} bg-secondary text-white
+        {% endif %}" style="border-radius: var(--radius-lg) var(--radius-lg) 0 0;">
         <div>
             <h4 class="mb-0 fw-bold">
-                Incidente #{{ incidente.id_incidente }}
-                <span class="badge ms-1
-                    {% if incidente.estado == 'Pendiente' %} bg-warning text-dark
-                    {% elif incidente.estado == 'Falso positivo' %} bg-success
-                    {% elif incidente.estado == 'Fraude confirmado' %} bg-danger
-                    {% else %} bg-secondary
-                    {% endif %}">{{ incidente.estado }}</span>
+                <i class="bi bi-shield-lock-fill me-2 opacity-75"></i>Incidente #{{ incidente.id_incidente }}
+                <span
+                    class="badge ms-2 bg-light {% if incidente.estado == 'Pendiente' %}text-dark{% else %}text-dark{% endif %}"
+                    style="font-size:0.8rem; vertical-align: middle;">
+                    {{ incidente.estado }}
+                </span>
             </h4>
-            <small class="text-muted">
-                {% localtime on %}{{ incidente.fecha|date:"d/M/Y, H:i" }}{% endlocaltime %}
+            <small class="opacity-75">
+                <i class="bi bi-calendar3 me-1"></i>{% localtime on %}{{ incidente.fecha|date:"d M Y, H:i" }}{% endlocaltime %}
             </small>
         </div>
-        <div class="text-end">
-            <div class="fw-semibold small text-muted">Score de riesgo</div>
-            <span class="badge fs-6
-                {% if incidente.score_riesgo >= 80 %} bg-danger
-                {% elif incidente.score_riesgo >= 50 %} bg-warning text-dark
-                {% else %} bg-success
-                {% endif %}">{{ incidente.score_riesgo }}%</span>
+        <div class="text-end bg-white px-3 py-2 rounded shadow-sm text-dark">
+            <div class="fw-semibold small text-muted text-uppercase" style="font-size:0.7rem; letter-spacing:0.5px;">
+                Score de riesgo</div>
+            <div class="fw-bold fs-4
+                {% if incidente.score_riesgo >= 80 %} text-danger
+                {% elif incidente.score_riesgo >= 50 %} text-warning
+                {% else %} text-success
+                {% endif %}" style="line-height:1;">
+                {{ incidente.score_riesgo }}%
+            </div>
         </div>
     </div>
 </div>
@@ -59,7 +61,9 @@
     <div class="col-lg-7">
         <!-- Incident info -->
         <div class="card mb-4 animate-in delay-2">
-            <div class="card-header"><h6>Información del incidente</h6></div>
+            <div class="card-header">
+                <h6>Información del incidente</h6>
+            </div>
             <div class="card-body p-0">
                 <ul class="list-group list-group-flush">
                     <li class="list-group-item d-flex justify-content-between align-items-center">
@@ -76,14 +80,12 @@
                             <strong>Score de Riesgo:</strong>
                             <span class="small text-muted">{{ incidente.score_riesgo }}%</span>
                         </div>
-                        <div class="progress" style="height:10px; border-radius:5px;">
-                            <div class="progress-bar progress-bar-striped
+                        <div class="progress" style="height:12px; border-radius:6px; background-color:#e9ecef;">
+                            <div id="incidentScoreBar" class="progress-bar progress-bar-striped progress-bar-animated
                                 {% if incidente.score_riesgo >= 80 %} bg-danger
                                 {% elif incidente.score_riesgo >= 50 %} bg-warning
                                 {% else %} bg-success
-                                {% endif %}"
-                                 role="progressbar"
-                                 style="width: {{ incidente.score_riesgo }}%; border-radius:5px;"></div>
+                                {% endif %}" role="progressbar" style="width: 0%; border-radius:6px;"></div>
                         </div>
                     </li>
                     <li class="list-group-item">
@@ -120,19 +122,28 @@
                         <strong>Importe:</strong> <span>S/ {{ incidente.id_transaccion.importe }}</span>
                     </li>
                     <li class="list-group-item d-flex justify-content-between">
+                        <strong>Tarjeta:</strong> <span>{{ incidente.id_transaccion.card_brand|upper }} / {{ incidente.id_transaccion.card_type }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <strong>Banco Emisor:</strong> <span>{{ incidente.id_transaccion.issuer_bank|upper }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <strong>Canal de Pago:</strong> <span>{{ incidente.id_transaccion.payment_channel }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <strong>Código ECI:</strong> <span>{{ incidente.id_transaccion.eci_code }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <strong>Región:</strong> <span>{{ incidente.id_transaccion.customer_region }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
                         <strong>Categoría:</strong> <span>{{ incidente.id_transaccion.category }}</span>
                     </li>
                     <li class="list-group-item d-flex justify-content-between">
-                        <strong>Estado/Distrito:</strong> <span>{{ incidente.id_transaccion.state }}</span>
+                        <strong>Nro. Ítems:</strong> <span>{{ incidente.id_transaccion.num_items }}</span>
                     </li>
                     <li class="list-group-item d-flex justify-content-between">
-                        <strong>Género:</strong> <span>{{ incidente.id_transaccion.gender|upper }}</span>
-                    </li>
-                    <li class="list-group-item d-flex justify-content-between">
-                        <strong>Edad:</strong> <span>{{ incidente.id_transaccion.age }}</span>
-                    </li>
-                    <li class="list-group-item d-flex justify-content-between">
-                        <strong>Población ciudad:</strong> <span>{{ incidente.id_transaccion.city_pop }}</span>
+                        <strong>Intentos fallidos:</strong> <span>{{ incidente.id_transaccion.previous_failed_attempts }}</span>
                     </li>
                 </ul>
             </div>
@@ -140,12 +151,26 @@
 
         <!-- Explainability -->
         <div class="card animate-in delay-4">
-            <div class="card-header"><h6>Explicabilidad (SHAP)</h6></div>
+            <div class="card-header">
+                <h6>Explicabilidad (SHAP / Reglas de Negocio)</h6>
+            </div>
             <div class="card-body">
-                <div id="shapChart" style="min-height:180px"></div>
-                <details class="mt-3">
-                    <summary class="text-muted small">Ver JSON completo</summary>
-                    <pre id="expBox" class="bg-light rounded p-2 mt-2 mb-0" style="font-size:.78rem; max-height:200px; overflow:auto;">{{ incidente.explicabilidad|safe }}</pre>
+                <div id="motivosAlertaBox" class="mb-4">
+                    <h6 class="fw-bold mb-2 text-danger"><i class="bi bi-shield-exclamation me-1"></i> Principales
+                        factores de riesgo detectados:</h6>
+                    <ul id="motivosAlertaList" class="mb-0 text-danger small ps-3" style="font-weight: 500;">
+                        <!-- JS fills this -->
+                    </ul>
+                </div>
+
+                <h6 class="fw-semibold mb-3 border-bottom pb-2 text-muted">Impacto de Variables (Contribución
+                    Matemática)</h6>
+                <div id="shapChart" style="min-height:160px"></div>
+                <details class="mt-4">
+                    <summary class="text-muted small fw-semibold" style="cursor:pointer;"><i
+                            class="bi bi-table me-1"></i> Ver detalle de variables</summary>
+                    <div id="tabularData" class="mt-2 text-start"></div>
+                    <pre id="expBox" style="display:none;">{{ incidente.explicabilidad|safe }}</pre>
                 </details>
             </div>
         </div>
@@ -154,26 +179,31 @@
     <!-- Right column: Actions -->
     <div class="col-lg-5">
         <div class="card sticky-top animate-in delay-2" style="top:1.5rem; z-index:10;">
-            <div class="card-header"><h6>Gestionar incidente</h6></div>
+            <div class="card-header">
+                <h6>Gestionar incidente</h6>
+            </div>
             <div class="card-body">
                 <form method="post" id="gestionForm">
                     {% csrf_token %}
-                    <div class="mb-3">
-                        <label for="estado" class="form-label fw-semibold">Cambiar estado:</label>
-                        <select name="estado" id="estado" class="form-select">
-                            <option value="Fraude confirmado">Fraude confirmado</option>
-                            <option value="Falso positivo">Falso positivo</option>
+                    <div class="mb-4">
+                        <label for="estado" class="form-label fw-semibold text-muted small text-uppercase">Cambiar estado del incidente:</label>
+                        <select name="estado" id="estado" class="form-select form-select-lg shadow-sm border-0 bg-light">
+                            <option value="Pendiente" {% if incidente.estado == 'Pendiente' %}selected{% endif %}>Pendiente / En revisión</option>
+                            <option value="Fraude confirmado" {% if incidente.estado == 'Fraude confirmado' %}selected{% endif %}>🔴 Fraude confirmado</option>
+                            <option value="Falso positivo" {% if incidente.estado == 'Falso positivo' %}selected{% endif %}>🟢 Falso positivo (Legítimo)</option>
                         </select>
                     </div>
-                    <div class="mb-3">
-                        <label for="comentario" class="form-label fw-semibold">Comentario:</label>
-                        <textarea id="comentario" name="comentario" rows="4" class="form-control">{{ incidente.comentario }}</textarea>
+                    <div class="mb-4">
+                        <label for="comentario" class="form-label fw-semibold text-muted small text-uppercase">Notas de resolución:</label>
+                        <textarea id="comentario" name="comentario" rows="3"
+                            class="form-control shadow-sm border-0 bg-light" placeholder="Agregue consideraciones adicionales aquí...">{{ incidente.comentario }}</textarea>
                     </div>
-                    <div class="d-grid gap-2">
-                        <button type="button" class="btn btn-brand" data-bs-toggle="modal" data-bs-target="#confirmModal">
-                            <i class="bi bi-save me-1"></i> Guardar
+                    <div class="d-flex gap-2 pt-2 border-top">
+                        <button type="button" class="btn btn-dark px-4 shadow-sm flex-grow-1" data-bs-toggle="modal"
+                            data-bs-target="#confirmModal">
+                            <i class="bi bi-check2-circle me-2"></i> Confirmar Resolución
                         </button>
-                        <a href="{% url 'incidentes_listado' %}" class="btn btn-outline-secondary">Volver</a>
+                        <a href="{% url 'incidentes_listado' %}" class="btn btn-light border px-4 shadow-sm text-secondary">Volver</a>
                     </div>
                 </form>
             </div>
@@ -190,7 +220,8 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <p><strong>Estado seleccionado:</strong> <span id="previewEstado" class="badge bg-secondary">-</span></p>
+                <p><strong>Estado seleccionado:</strong> <span id="previewEstado" class="badge bg-secondary">-</span>
+                </p>
                 <p class="mb-1"><strong>Comentario:</strong></p>
                 <p id="previewComentario" class="border rounded p-2 bg-light" style="white-space:pre-wrap">—</p>
             </div>
@@ -203,15 +234,8 @@
 </div>
 
 <script>
-    // Select color
+    // El select ahora usa emojis integrados y diseño unificado, ya no cambiamos los fondos violentamente.
     const estadoSelect = document.getElementById("estado");
-    const updateSelectColor = () => {
-        estadoSelect.classList.remove("bg-success","bg-danger","text-white");
-        if (estadoSelect.value === "Falso positivo") estadoSelect.classList.add("bg-success","text-white");
-        else if (estadoSelect.value === "Fraude confirmado") estadoSelect.classList.add("bg-danger","text-white");
-    };
-    estadoSelect.addEventListener("change", updateSelectColor);
-    updateSelectColor();
 
     // Modal preview
     const confirmModal = document.getElementById("confirmModal");
@@ -239,17 +263,30 @@
     }
 
     // SHAP waterfall chart (simple horizontal bar)
-    (function renderShap(){
+    (function renderShap() {
         const el = document.getElementById('expBox');
         const chartDiv = document.getElementById('shapChart');
         if (!el || !chartDiv) return;
         try {
             const raw = el.textContent.trim();
             const obj = JSON.parse(raw);
-            el.textContent = JSON.stringify(obj, null, 2);
 
+            // Set Progress Bar Safely
+            const scoreStr = "{{ incidente.score_riesgo|safe }}".replace(',', '.');
+            document.getElementById('incidentScoreBar').style.width = parseFloat(scoreStr) + '%';
+
+            // 1. Mostrar motivos de alerta
+            const alertList = document.getElementById('motivosAlertaList');
+            const alertBox = document.getElementById('motivosAlertaBox');
+            if (obj.explicacion_negocio && obj.explicacion_negocio.length > 0) {
+                alertList.innerHTML = obj.explicacion_negocio.map(r => `<li class="mb-1">${r}</li>`).join('');
+            } else {
+                alertBox.style.display = 'none'; // Ocultar si no hay alarmas fuertes
+            }
+
+            // 2. Mostrar barras SHAP
             const factors = obj.top_factors || [];
-            if (!factors.length) { chartDiv.innerHTML = '<p class="text-muted text-center">Sin datos de explicabilidad</p>'; return;}
+            if (!factors.length) { chartDiv.innerHTML = '<p class="text-muted text-center">Sin datos de explicabilidad</p>'; return; }
 
             const maxAbs = Math.max(...factors.map(f => Math.abs(f.impact)));
             chartDiv.innerHTML = factors.map(f => {
@@ -262,10 +299,22 @@
                         <div style="flex:1; height:22px; background:#f3f4f6; border-radius:4px; overflow:hidden; position:relative;">
                             <div style="width:${pct}%; height:100%; background:${color}; border-radius:4px; transition:width .5s ease-out;"></div>
                         </div>
-                        <span style="width:70px; font-size:.75rem; font-weight:500; color:${color};">${sign}${f.impact.toFixed(4)}</span>
+                        <span style="width:70px; font-size:.75rem; font-weight:500; color:${color}; text-align:right;">${sign}${f.impact.toFixed(4)}</span>
                     </div>`;
             }).join('');
-        } catch(_) {
+
+            // 3. Crear Tabla Resumen
+            let tableHtml = `<div class="table-responsive"><table class="table table-sm table-hover border rounded" style="font-size:0.85rem;">
+                <thead class="table-light"><tr><th class="ps-3 border-0">Variable / Característica</th><th class="text-end pe-3 border-0">Impacto (Matemático)</th></tr></thead><tbody>`;
+            factors.forEach(f => {
+                const color = f.impact >= 0 ? 'var(--status-fraud)' : 'var(--status-ok)';
+                const sign = f.impact >= 0 ? '+' : '';
+                tableHtml += `<tr><td class="ps-3 fw-medium">${f.display_name} <span class="text-muted small ms-1">(${f.feature})</span></td><td class="text-end pe-3 fw-bold" style="color:${color};">${sign}${f.impact.toFixed(4)}</td></tr>`;
+            });
+            tableHtml += `</tbody></table></div>`;
+            document.getElementById('tabularData').innerHTML = tableHtml;
+
+        } catch (_) {
             chartDiv.innerHTML = '<p class="text-muted text-center">No se pudo parsear la explicabilidad</p>';
         }
     })();

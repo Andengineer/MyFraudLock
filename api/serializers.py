@@ -16,8 +16,13 @@ class TransaccionSerializer(serializers.ModelSerializer):
         model = Transaccion
         fields = [
             "id_transaccion", "importe", "fecha",
-            "category", "state", "gender",
-            "age", "city_pop",
+            "card_brand", "card_type", "issuer_bank",
+            "payment_channel", "eci_code", "num_installments",
+            "customer_region", "city_population",
+            "is_new_customer", "days_since_first_purchase",
+            "avg_historical_amount",
+            "category", "num_items", "has_discount",
+            "previous_failed_attempts",
         ]
 
 

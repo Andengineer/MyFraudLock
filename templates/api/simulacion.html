@@ -39,33 +39,101 @@
                         <form method="post" class="row g-3" action="{% url 'simulacion_front' %}">
                             {% csrf_token %}
                             <div class="col-md-4">
-                                <label class="form-label" for="importe">Importe</label>
+                                <label class="form-label" for="importe">Importe (S/)</label>
                                 <input class="form-control" id="importe" type="number" step="0.01" name="importe" required>
                             </div>
-                            <div class="col-md-8">
-                                <label class="form-label" for="category">Categoría</label>
-                                <input class="form-control" id="category" name="category"
-                                       placeholder="shopping_pos / food_dining / ..." required>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label" for="state">Estado/Distrito</label>
-                                <input class="form-control" id="state" name="state"
-                                       placeholder="miraflores / lima / ..." required>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label" for="gender">Género</label>
-                                <select class="form-select" id="gender" name="gender" required>
-                                    <option value="m">Masculino</option>
-                                    <option value="f">Femenino</option>
+                            <div class="col-md-4">
+                                <label class="form-label" for="card_brand">Marca de Tarjeta</label>
+                                <select class="form-select" id="card_brand" name="card_brand" required>
+                                    <option value="visa">Visa</option>
+                                    <option value="mastercard">Mastercard</option>
+                                    <option value="amex">Amex</option>
+                                    <option value="diners">Diners Club</option>
+                                    <option value="other">Otra</option>
                                 </select>
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label" for="age">Edad</label>
-                                <input class="form-control" id="age" name="age" type="number" min="0" max="120" required>
+                            <div class="col-md-4">
+                                <label class="form-label" for="card_type">Tipo de Tarjeta</label>
+                                <select class="form-select" id="card_type" name="card_type" required>
+                                    <option value="debit">Débito</option>
+                                    <option value="credit">Crédito</option>
+                                </select>
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label" for="city_pop">Población de la ciudad</label>
-                                <input class="form-control" id="city_pop" name="city_pop" type="number" min="0" required>
+                            <div class="col-md-4">
+                                <label class="form-label" for="issuer_bank">Banco Emisor</label>
+                                <select class="form-select" id="issuer_bank" name="issuer_bank" required>
+                                    <option value="bcp">BCP</option>
+                                    <option value="bbva">BBVA</option>
+                                    <option value="interbank">Interbank</option>
+                                    <option value="scotiabank">Scotiabank</option>
+                                    <option value="falabella">Falabella</option>
+                                    <option value="otros">Otros</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="payment_channel">Canal de Pago</label>
+                                <select class="form-select" id="payment_channel" name="payment_channel">
+                                    <option value="web">Web</option>
+                                    <option value="mobile">Móvil</option>
+                                    <option value="app">App</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="eci_code">Código ECI</label>
+                                <select class="form-select" id="eci_code" name="eci_code">
+                                    <option value="5">5 (Verified by Visa)</option>
+                                    <option value="7">7 (Sin 3DS)</option>
+                                    <option value="2">2 (MC SecureCode)</option>
+                                    <option value="6">6 (3DS fallido)</option>
+                                    <option value="0">0 (Sin autenticación)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="customer_region">Región</label>
+                                <select class="form-select" id="customer_region" name="customer_region" required>
+                                    <option value="lima">Lima</option>
+                                    <option value="arequipa">Arequipa</option>
+                                    <option value="piura">Piura</option>
+                                    <option value="cusco">Cusco</option>
+                                    <option value="lambayeque">Lambayeque</option>
+                                    <option value="la_libertad">La Libertad</option>
+                                    <option value="junin">Junín</option>
+                                    <option value="callao">Callao</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="category">Categoría</label>
+                                <select class="form-select" id="category" name="category">
+                                    <option value="repuestos_moto">Repuestos Moto</option>
+                                    <option value="indumentaria_moto">Indumentaria Moto</option>
+                                    <option value="aceites_lubricantes">Aceites/Lubricantes</option>
+                                    <option value="cascos">Cascos</option>
+                                    <option value="accesorios">Accesorios</option>
+                                    <option value="electronica">Electrónica</option>
+                                    <option value="otros">Otros</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="num_items">Nro. Ítems</label>
+                                <input class="form-control" id="num_items" name="num_items" type="number" min="1" value="1">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label" for="num_installments">Cuotas</label>
+                                <input class="form-control" id="num_installments" name="num_installments" type="number" min="0" value="0">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label" for="previous_failed_attempts">Intentos fallidos</label>
+                                <input class="form-control" id="previous_failed_attempts" name="previous_failed_attempts" type="number" min="0" value="0">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label" for="avg_historical_amount">Prom. Historial (S/)</label>
+                                <input class="form-control" id="avg_historical_amount" name="avg_historical_amount" type="number" step="0.01" value="0">
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-check mt-4">
+                                    <input class="form-check-input" type="checkbox" id="is_new_customer" name="is_new_customer">
+                                    <label class="form-check-label" for="is_new_customer">Cliente nuevo</label>
+                                </div>
                             </div>
                             <div class="col-12">
                                 <button class="btn btn-brand btn-icon" type="submit">
@@ -104,24 +172,57 @@
                             </svg>
                         </div>
 
-                        <h6 class="mb-2 mt-3 fw-bold">Explicabilidad:</h6>
-                        <details class="xai-json-wrap" open>
-                            <summary class="text-muted small mb-2">Ver detalle</summary>
-                            <pre id="xai-json" class="bg-light rounded p-2 mb-0" style="font-size:.78rem; max-height:200px; overflow:auto;"></pre>
+                        <h6 class="mb-2 mt-3 fw-bold">Motivos de Alerta:</h6>
+                        <ul id="explicacion-negocio-list" class="mb-3 text-danger small ps-3" style="font-weight: 500;">
+                            <!-- JS fills this -->
+                        </ul>
+                        
+                        <details class="xai-json-wrap mt-2">
+                            <summary class="text-muted small mb-2 fw-semibold" style="cursor:pointer;"><i class="bi bi-table me-1"></i> Ver desglose matemático (SHAP)</summary>
+                            <div id="tabularData" class="mt-2 text-start"></div>
+                            <pre id="xai-json" style="display:none;"></pre>
                         </details>
                         {% if resultado and resultado.explicabilidad %}
                         <script>
                             (function(){
                                 const raw = '{{ resultado.explicabilidad|escapejs }}';
                                 const el = document.getElementById('xai-json');
+                                const listEl = document.getElementById('explicacion-negocio-list');
                                 try {
-                                    el.textContent = JSON.stringify(JSON.parse(raw), null, 2);
+                                    const parsed = JSON.parse(raw);
+                                    el.textContent = JSON.stringify(parsed, null, 2);
+                                    
+                                    if (parsed.explicacion_negocio && parsed.explicacion_negocio.length > 0) {
+                                        parsed.explicacion_negocio.forEach(r => {
+                                            const li = document.createElement('li');
+                                            li.innerHTML = `<i class="bi bi-exclamation-triangle-fill text-warning me-1"></i> ${r}`;
+                                            listEl.appendChild(li);
+                                        });
+                                    } else {
+                                        listEl.innerHTML = '<li class="text-muted">Sin advertencias críticas relevantes en esta evaluación.</li>';
+                                    }
+                                    
+                                    // 2. Build mathematical summary table
+                                    if (parsed.top_factors && parsed.top_factors.length > 0) {
+                                        let tableHtml = `<div class="table-responsive"><table class="table table-sm table-hover border rounded" style="font-size:0.85rem;">
+                                            <thead class="table-light"><tr><th class="ps-3 border-0">Variable / Característica</th><th class="text-end pe-3 border-0">Impacto</th></tr></thead><tbody>`;
+                                        parsed.top_factors.forEach(f => {
+                                            const color = f.impact >= 0 ? 'var(--status-fraud)' : 'var(--status-ok)';
+                                            const sign = f.impact >= 0 ? '+' : '';
+                                            tableHtml += `<tr><td class="ps-3 fw-medium">${f.display_name} <span class="text-muted small ms-1">(${f.feature})</span></td><td class="text-end pe-3 fw-bold" style="color:${color};">${sign}${f.impact.toFixed(4)}</td></tr>`;
+                                        });
+                                        tableHtml += `</tbody></table></div>`;
+                                        document.getElementById('tabularData').innerHTML = tableHtml;
+                                    }
+
                                 } catch(e) {
                                     el.textContent = raw || '—';
+                                    listEl.innerHTML = '<li class="text-muted">No se pudo procesar la respuesta.</li>';
                                 }
 
                                 // Animate gauge
-                                const score = {{ resultado.score_riesgo|floatformat:2 }};
+                                const scoreStr = "{{ resultado.score_riesgo|safe }}".replace(',', '.');
+                                const score = parseFloat(scoreStr);
                                 const arc = document.getElementById('gaugeArc');
                                 const txt = document.getElementById('gaugeText');
                                 const total = 251.3;
@@ -146,12 +247,12 @@
         <div class="card animate-in delay-2">
             <div class="card-header card-brand-header"><h5 class="mb-0">Cargar archivo CSV</h5></div>
             <div class="card-body">
-                <p class="mb-2"><b>Formato esperado:</b> <code>importe,category,state,gender,age,city_pop</code></p>
+                <p class="mb-2"><b>Formato esperado:</b> <code>importe,card_brand,card_type,customer_region,category</code> (+ campos opcionales)</p>
                 <details class="mb-3">
                     <summary class="text-muted small">Ver ejemplo</summary>
-                    <pre class="brand-subtle p-2 rounded mb-0 mt-2" style="font-size:.8rem;">importe,category,state,gender,age,city_pop
-120.50,shopping_pos,miraflores,m,32,1000000
-999.90,food_dining,lima,f,28,900000</pre>
+                    <pre class="brand-subtle p-2 rounded mb-0 mt-2" style="font-size:.8rem;">importe,card_brand,card_type,issuer_bank,customer_region,category,eci_code,num_items,previous_failed_attempts
+120.50,visa,debit,bcp,lima,repuestos_moto,5,2,0
+999.90,mastercard,credit,bbva,arequipa,electronica,0,1,3</pre>
                 </details>
 
                 <form method="post" enctype="multipart/form-data"
@@ -177,20 +278,19 @@
                     <table class="table table-hover align-middle mb-0">
                         <thead>
                         <tr>
-                            <th>#</th><th>Importe</th><th>Categoría</th><th>Estado</th>
-                            <th>Género</th><th>Edad</th><th>Población</th><th>Score</th><th>Explicabilidad</th>
+                            <th>#</th><th>Importe</th><th>Tarjeta</th><th>Banco</th>
+                            <th>Región</th><th>Categoría</th><th>Score</th><th>Explicabilidad</th>
                         </tr>
                         </thead>
                         <tbody>
                         {% for r in resultados %}
                             <tr>
                                 <td>{{ forloop.counter }}</td>
-                                <td>{{ r.importe }}</td>
+                                <td>S/ {{ r.importe }}</td>
+                                <td>{{ r.card_brand|upper }} / {{ r.card_type }}</td>
+                                <td>{{ r.issuer_bank|upper }}</td>
+                                <td>{{ r.customer_region }}</td>
                                 <td>{{ r.category }}</td>
-                                <td>{{ r.state }}</td>
-                                <td>{{ r.gender|upper }}</td>
-                                <td>{{ r.age }}</td>
-                                <td>{{ r.city_pop }}</td>
                                 <td>
                                     <span class="badge {% if r.score_riesgo >= 80 %}badge-risk-high{% elif r.score_riesgo >= 50 %}badge-risk-med{% else %}badge-risk-low{% endif %}">
                                         {{ r.score_riesgo|floatformat:3 }}%

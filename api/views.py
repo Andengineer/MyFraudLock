@@ -5,8 +5,10 @@ import csv
 import io
 import json
 
+import json
+
 from django.contrib import messages
-from django.db.models import Count
+from django.db.models import Count, Sum
 from django.db.models.functions import TruncDate
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -67,7 +69,7 @@ class TransaccionViewSet(viewsets.ModelViewSet):
     queryset = Transaccion.objects.all()
     serializer_class = TransaccionSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['category', 'state', 'gender']
+    filterset_fields = ['category', 'card_brand', 'customer_region']
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -177,42 +179,56 @@ class ConfiguracionViewSet(viewsets.ModelViewSet):
 @usuario_login_required
 @require_roles('EJECUTIVO')
 def dashboard_view(request):
-    """Dashboard ejecutivo con KPIs y gráficos."""
-    pendientes = Incidente.objects.filter(estado="Pendiente").count()
-    confirmados = Incidente.objects.filter(estado="Fraude confirmado").count()
-    falsos = Incidente.objects.filter(estado="Falso positivo").count()
-    recientes = Incidente.objects.order_by("-fecha")[:10]
+    """Dashboard ejecutivo con KPIs e Impactos Financieros."""
+    # 1. KPIs Generales
+    pendientes_count = Incidente.objects.filter(estado="Pendiente").count()
+    confirmados_qs = Incidente.objects.filter(estado="Fraude confirmado")
+    falsos_qs = Incidente.objects.filter(estado="Falso positivo")
+    
+    confirmados = confirmados_qs.count()
+    falsos = falsos_qs.count()
+    
+    # 2. Financiero (S/) -> Dinero protegido
+    # The models are Incidente -> fk -> id_transaccion -> importe
+    dinero_protegido = confirmados_qs.aggregate(total=Sum('id_transaccion__importe'))['total'] or 0.0
+    dinero_falso_pos = falsos_qs.aggregate(total=Sum('id_transaccion__importe'))['total'] or 0.0
+    dinero_en_riesgo = Incidente.objects.filter(estado="Pendiente").aggregate(total=Sum('id_transaccion__importe'))['total'] or 0.0
 
-    # Fraude por ciudad (top 10 + Otros)
-    qs_city = (
+    recientes = Incidente.objects.order_by("-fecha")[:8]
+
+    # Fraude por Marca de Tarjeta (Reemplazando Category por Card Brand como mayor insight de DNN)
+    qs_brand = (
         Incidente.objects.filter(estado="Fraude confirmado")
-        .values("id_transaccion__state")
+        .values("id_transaccion__card_brand")
+        .annotate(n=Count("id_incidente"), total_monto=Sum("id_transaccion__importe"))
+        .order_by("-n")
+    )
+    labels_brand = [(r["id_transaccion__card_brand"] or "Desconocida").upper() for r in qs_brand]
+    data_brand = [r["n"] for r in qs_brand]
+    data_brand_money = [float(r["total_monto"] or 0) for r in qs_brand]
+
+    # Fraude por Canal de Pago
+    qs_channel = (
+        Incidente.objects.filter(estado="Fraude confirmado")
+        .values("id_transaccion__payment_channel")
         .annotate(n=Count("id_incidente"))
         .order_by("-n")
     )
-    labels_city, data_city, otros = [], [], 0
-    for i, r in enumerate(qs_city):
-        name = r["id_transaccion__state"] or "—"
-        if i < 10:
-            labels_city.append(name)
-            data_city.append(r["n"])
-        else:
-            otros += r["n"]
-    if otros:
-        labels_city.append("Otros")
-        data_city.append(otros)
+    labels_channel = [(r["id_transaccion__payment_channel"] or "Web").capitalize() for r in qs_channel]
+    data_channel = [r["n"] for r in qs_channel]
 
-    # Fraude por categoría
+    # Fraude por Categoría de Producto
     qs_cat = (
         Incidente.objects.filter(estado="Fraude confirmado")
         .values("id_transaccion__category")
-        .annotate(n=Count("id_incidente"))
+        .annotate(n=Count("id_incidente"), total_monto=Sum("id_transaccion__importe"))
         .order_by("-n")
     )
-    labels_cat = [(r["id_transaccion__category"] or "—") for r in qs_cat]
+    labels_cat = [(r["id_transaccion__category"] or "Otros").capitalize() for r in qs_cat]
     data_cat = [r["n"] for r in qs_cat]
-
-    # Distribución de score (buckets)
+    data_cat_money = [float(r["total_monto"] or 0) for r in qs_cat]
+    
+    # Distribución de score (buckets) 
     buckets = [(0, 20), (20, 40), (40, 60), (60, 80), (80, 100)]
     bucket_labels = ["0–20", "20–40", "40–60", "60–80", "80–100"]
     bucket_counts = []
@@ -223,7 +239,7 @@ def dashboard_view(request):
             c = Incidente.objects.filter(score_riesgo__gte=lo, score_riesgo__lte=hi).count()
         bucket_counts.append(c)
 
-    # Tendencia últimos 30 días
+    # Tendencia últimos 30 días - Cantidad Incidentes
     tz_info = timezone.get_current_timezone()
     since = timezone.now() - timezone.timedelta(days=29)
     daily = (
@@ -242,14 +258,21 @@ def dashboard_view(request):
         series[row["estado"]][index[row["d"]]] = row["n"]
 
     ctx = {
-        "pendientes": pendientes,
+        "pendientes": pendientes_count,
         "confirmados": confirmados,
         "falsos": falsos,
+        "dinero_protegido": round(dinero_protegido, 2),
+        "dinero_falso_pos": round(dinero_falso_pos, 2),
+        "dinero_en_riesgo": round(dinero_en_riesgo, 2),
         "recientes": recientes,
-        "labels_city": json.dumps(labels_city),
-        "data_city": json.dumps(data_city),
+        "labels_brand": json.dumps(labels_brand),
+        "data_brand": json.dumps(data_brand),
+        "data_brand_money": json.dumps(data_brand_money),
+        "labels_channel": json.dumps(labels_channel),
+        "data_channel": json.dumps(data_channel),
         "labels_cat": json.dumps(labels_cat),
         "data_cat": json.dumps(data_cat),
+        "data_cat_money": json.dumps(data_cat_money),
         "bucket_labels": json.dumps(bucket_labels),
         "bucket_counts": json.dumps(bucket_counts),
         "date_labels": json.dumps(date_labels),
@@ -323,11 +346,22 @@ def simulacion_view(request):
 
         payload = {
             "importe": importe,
-            "category": (request.POST.get("category") or "").strip(),
-            "state": (request.POST.get("state") or "").strip(),
-            "gender": (request.POST.get("gender") or "").strip().lower(),
-            "age": int(request.POST.get("age") or 0),
-            "city_pop": int(request.POST.get("city_pop") or 0),
+            "fecha": None,
+            "card_brand": (request.POST.get("card_brand") or "visa").strip().lower(),
+            "card_type": (request.POST.get("card_type") or "debit").strip().lower(),
+            "issuer_bank": (request.POST.get("issuer_bank") or "bcp").strip().lower(),
+            "payment_channel": (request.POST.get("payment_channel") or "web").strip().lower(),
+            "eci_code": int(request.POST.get("eci_code") or 5),
+            "num_installments": int(request.POST.get("num_installments") or 0),
+            "customer_region": (request.POST.get("customer_region") or "lima").strip().lower(),
+            "city_population": int(request.POST.get("city_population") or 0),
+            "is_new_customer": bool(request.POST.get("is_new_customer")),
+            "days_since_first_purchase": int(request.POST.get("days_since_first_purchase") or 0),
+            "avg_historical_amount": float(request.POST.get("avg_historical_amount") or 0),
+            "category": (request.POST.get("category") or "otros").strip().lower(),
+            "num_items": int(request.POST.get("num_items") or 1),
+            "has_discount": bool(request.POST.get("has_discount")),
+            "previous_failed_attempts": int(request.POST.get("previous_failed_attempts") or 0),
         }
 
         score, explicabilidad = predict_fraud(payload)
@@ -356,12 +390,13 @@ def simulacion_lote_view(request):
             data = archivo.read().decode("utf-8", errors="ignore")
             reader = csv.DictReader(io.StringIO(data))
 
-            expected = {"importe", "category", "state", "gender", "age", "city_pop"}
+            expected = {"importe", "card_brand", "card_type", "customer_region", "category"}
             headers = {h.strip() for h in (reader.fieldnames or [])}
             if not expected.issubset(headers):
                 messages.error(
                     request,
-                    "Cabeceras inválidas. Se esperan: importe,category,state,gender,age,city_pop",
+                    "Cabeceras inválidas. Se esperan: importe,card_brand,card_type,customer_region,category"
+                    " (y opcionalmente: issuer_bank,payment_channel,eci_code,...)",
                 )
                 return render(request, "api/simulacion.html", contexto)
 
@@ -369,18 +404,27 @@ def simulacion_lote_view(request):
             for row in reader:
                 try:
                     importe = float(str(row.get("importe", "")).replace(",", "."))
-                    age = int(row.get("age") or 0)
-                    city_pop = int(row.get("city_pop") or 0)
                 except ValueError:
                     continue
 
                 payload = {
                     "importe": importe,
-                    "category": (row.get("category") or "").strip(),
-                    "state": (row.get("state") or "").strip(),
-                    "gender": (row.get("gender") or "").strip().lower(),
-                    "age": age,
-                    "city_pop": city_pop,
+                    "fecha": None,
+                    "card_brand": (row.get("card_brand") or "visa").strip().lower(),
+                    "card_type": (row.get("card_type") or "debit").strip().lower(),
+                    "issuer_bank": (row.get("issuer_bank") or "bcp").strip().lower(),
+                    "payment_channel": (row.get("payment_channel") or "web").strip().lower(),
+                    "eci_code": int(row.get("eci_code") or 5),
+                    "num_installments": int(row.get("num_installments") or 0),
+                    "customer_region": (row.get("customer_region") or "lima").strip().lower(),
+                    "city_population": int(row.get("city_population") or 0),
+                    "is_new_customer": bool(int(row.get("is_new_customer") or 0)),
+                    "days_since_first_purchase": int(row.get("days_since_first_purchase") or 0),
+                    "avg_historical_amount": float(row.get("avg_historical_amount") or 0),
+                    "category": (row.get("category") or "otros").strip().lower(),
+                    "num_items": int(row.get("num_items") or 1),
+                    "has_discount": bool(int(row.get("has_discount") or 0)),
+                    "previous_failed_attempts": int(row.get("previous_failed_attempts") or 0),
                 }
 
                 score, explicabilidad = predict_fraud(payload)

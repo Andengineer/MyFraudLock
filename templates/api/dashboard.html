@@ -14,66 +14,101 @@
 </div>
 
 <!-- KPI CARDS -->
-<div class="row g-3 animate-in delay-1">
+<div class="row g-3 animate-in delay-1 mt-2">
+    <!-- KPI 1: Fraudes (Ahorro) -->
     <div class="col-md-4">
-        <div class="dash-kpi">
-            <div class="dash-kpi-icon pending"><i class="bi bi-hourglass-split"></i></div>
-            <div>
-                <div class="dash-kpi-label">Pendientes</div>
-                <div class="dash-kpi-value">{{ pendientes }}</div>
+        <div class="dash-kpi" style="background: linear-gradient(145deg, #ffffff, #fef2f2); border: 1px solid #fee2e2;">
+            <div class="dash-kpi-icon fraud shadow-sm"><i class="bi bi-shield-lock-fill"></i></div>
+            <div class="ms-2">
+                <div class="dash-kpi-label text-danger fw-semibold text-uppercase">Dinero Protegido (Fraude)</div>
+                <div class="dash-kpi-value text-dark">S/ {{ dinero_protegido|default:"0.00" }}</div>
+                <span class="badge bg-danger mt-1">{{ confirmados }} Incidentes detectados</span>
             </div>
-            <span class="badge bg-warning text-dark ms-auto">Pendiente</span>
         </div>
     </div>
+    
+    <!-- KPI 2: Pendientes (Riesgo Latente) -->
     <div class="col-md-4">
-        <div class="dash-kpi">
-            <div class="dash-kpi-icon fraud"><i class="bi bi-shield-exclamation"></i></div>
-            <div>
-                <div class="dash-kpi-label">Fraude confirmado</div>
-                <div class="dash-kpi-value">{{ confirmados }}</div>
+        <div class="dash-kpi" style="background: linear-gradient(145deg, #ffffff, #fffbeb); border: 1px solid #fef3c7;">
+            <div class="dash-kpi-icon pending shadow-sm"><i class="bi bi-hourglass-split"></i></div>
+            <div class="ms-2">
+                <div class="dash-kpi-label text-warning-emphasis fw-semibold text-uppercase">Riesgo en Pendientes</div>
+                <div class="dash-kpi-value text-dark">S/ {{ dinero_en_riesgo|default:"0.00" }}</div>
+                <span class="badge bg-warning text-dark mt-1">{{ pendientes }} Evaluaciones urgentes</span>
             </div>
-            <span class="badge bg-danger ms-auto">Fraude</span>
         </div>
     </div>
+    
+    <!-- KPI 3: Falsos Positivos -->
     <div class="col-md-4">
-        <div class="dash-kpi">
-            <div class="dash-kpi-icon ok"><i class="bi bi-patch-check"></i></div>
-            <div>
-                <div class="dash-kpi-label">Falsos positivos</div>
-                <div class="dash-kpi-value">{{ falsos }}</div>
+        <div class="dash-kpi" style="background: linear-gradient(145deg, #ffffff, #ecfdf5); border: 1px solid #d1fae5;">
+            <div class="dash-kpi-icon ok shadow-sm"><i class="bi bi-patch-check"></i></div>
+            <div class="ms-2">
+                <div class="dash-kpi-label text-success fw-semibold text-uppercase">Falsos Positivos Retornados</div>
+                <div class="dash-kpi-value text-dark">S/ {{ dinero_falso_pos|default:"0.00" }}</div>
+                <span class="badge bg-success mt-1">{{ falsos }} Evaluaciones legitimas</span>
             </div>
-            <span class="badge bg-success ms-auto">Falso positivo</span>
         </div>
     </div>
 </div>
 
-<!-- ROW 1: Charts -->
-<div class="row g-3 mt-1 animate-in delay-2">
+<!-- ROW 1: Charts (Marcas / Franquicias) -->
+<div class="row g-3 mt-3 animate-in delay-2">
     <div class="col-lg-6">
-        <div class="card">
-            <div class="card-header card-brand-header"><h6>Fraude por ciudad (Top 10)</h6></div>
-            <div class="card-body"><canvas id="chartCity" height="160"></canvas></div>
+        <div class="card border-0 shadow-sm" style="border-radius: var(--radius-lg);">
+            <div class="card-header bg-white border-0 pt-4 pb-2">
+                <h6 class="fw-bold mb-0"><i class="bi bi-credit-card me-2 text-primary"></i>Fraude por Franquicia de Pago (Volumen)</h6>
+            </div>
+            <div class="card-body"><canvas id="chartBrandVol" height="150"></canvas></div>
         </div>
     </div>
     <div class="col-lg-6">
-        <div class="card">
-            <div class="card-header card-brand-header"><h6>Fraude por categoría</h6></div>
-            <div class="card-body"><canvas id="chartCat" height="160"></canvas></div>
+        <div class="card border-0 shadow-sm" style="border-radius: var(--radius-lg);">
+            <div class="card-header bg-white border-0 pt-4 pb-2">
+                <h6 class="fw-bold mb-0 text-success"><i class="bi bi-cash-stack me-2"></i>Fraude por Franquicia (Pérdida S/)</h6>
+            </div>
+            <div class="card-body"><canvas id="chartBrandMoney" height="150"></canvas></div>
         </div>
     </div>
 </div>
 
-<!-- ROW 2: Trend + Score -->
-<div class="row g-3 mt-1 animate-in delay-3">
+<!-- ROW 2: Canales y Categorías -->
+<div class="row g-3 mt-3 animate-in delay-3">
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm h-100" style="border-radius: var(--radius-lg);">
+            <div class="card-header bg-white border-0 pt-4 pb-2">
+                <h6 class="fw-bold mb-0 text-info"><i class="bi bi-laptop me-2"></i>Fraude por Canal Operativo</h6>
+            </div>
+            <div class="card-body d-flex justify-content-center align-items-center pb-4">
+                <canvas id="chartChannel" style="max-height:200px"></canvas>
+            </div>
+        </div>
+    </div>
     <div class="col-lg-8">
-        <div class="card">
-            <div class="card-header card-brand-header"><h6>Incidentes últimos 30 días</h6></div>
-            <div class="card-body"><canvas id="chartTrend" height="150"></canvas></div>
+        <div class="card border-0 shadow-sm h-100" style="border-radius: var(--radius-lg);">
+            <div class="card-header bg-white border-0 pt-4 pb-2">
+                <h6 class="fw-bold mb-0"><i class="bi bi-basket2 me-2 text-warning"></i>Riesgo por Categoría (Pérdida S/)</h6>
+            </div>
+            <div class="card-body"><canvas id="chartCategory" height="150"></canvas></div>
+        </div>
+    </div>
+</div>
+
+<!-- ROW 3: Trend + Score -->
+<div class="row g-3 mt-3 animate-in delay-4">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm" style="border-radius: var(--radius-lg);">
+            <div class="card-header bg-white border-0 pt-4 pb-2">
+                <h6 class="fw-bold mb-0"><i class="bi bi-graph-up me-2 text-primary"></i>Evolución de detección a 30 días</h6>
+            </div>
+            <div class="card-body"><canvas id="chartTrend" height="160"></canvas></div>
         </div>
     </div>
     <div class="col-lg-4">
-        <div class="card h-100">
-            <div class="card-header card-brand-header"><h6>Distribución de score</h6></div>
+        <div class="card h-100 border-0 shadow-sm" style="border-radius: var(--radius-lg);">
+            <div class="card-header bg-white border-0 pt-4 pb-2">
+                <h6 class="fw-bold mb-0"><i class="bi bi-pie-chart me-2 opacity-75"></i>Distribución de Score DNN</h6>
+            </div>
             <div class="card-body d-flex justify-content-center align-items-center">
                 <canvas id="chartScore" style="max-height:220px"></canvas>
             </div>
@@ -124,26 +159,27 @@
     .dash-kpi {
         background: var(--surface-card);
         border-radius: var(--radius-lg);
-        padding: 1.15rem 1.35rem;
+        padding: 1.5rem 1.35rem;
         display: flex;
         align-items: center;
         gap: .85rem;
-        box-shadow: var(--shadow-sm);
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
         transition: all var(--transition);
+        border: none;
     }
-    .dash-kpi:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+    .dash-kpi:hover { box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1); transform: translateY(-2px); }
     .dash-kpi-icon {
-        width: 44px; height: 44px;
-        border-radius: var(--radius-sm);
+        width: 52px; height: 52px;
+        border-radius: 12px;
         display: grid; place-items: center;
-        font-size: 1.15rem; color: #fff;
+        font-size: 1.4rem; color: #fff;
         flex-shrink: 0;
     }
     .dash-kpi-icon.pending { background: linear-gradient(135deg, #f59e0b, #d97706); }
-    .dash-kpi-icon.fraud   { background: linear-gradient(135deg, #ef4444, #dc2626); }
-    .dash-kpi-icon.ok      { background: linear-gradient(135deg, #10b981, #059669); }
-    .dash-kpi-label { font-size: .78rem; color: var(--text-secondary); }
-    .dash-kpi-value { font-size: 1.75rem; font-weight: 800; line-height: 1; }
+    .dash-kpi-icon.fraud   { background: linear-gradient(135deg, #ef4444, #b91c1c); }
+    .dash-kpi-icon.ok      { background: linear-gradient(135deg, #10b981, #047857); }
+    .dash-kpi-label { font-size: .75rem; letter-spacing: 0.5px; opacity: 0.8; margin-bottom: 2px;}
+    .dash-kpi-value { font-size: 1.85rem; font-weight: 800; line-height: 1.1; letter-spacing: -0.5px; }
 </style>
 
 <!-- Chart.js -->
@@ -162,10 +198,16 @@
     ];
     const colorsFor = n => Array.from({length: n}, (_, i) => PALETTE[i % PALETTE.length]);
 
-    const labelsCity = JSON.parse('{{ labels_city|escapejs }}');
-    const dataCity   = JSON.parse('{{ data_city|escapejs }}');
-    const labelsCat  = JSON.parse('{{ labels_cat|escapejs }}');
-    const dataCat    = JSON.parse('{{ data_cat|escapejs }}');
+    const labelsBrand  = JSON.parse('{{ labels_brand|escapejs|default:"[]" }}');
+    const dataBrand    = JSON.parse('{{ data_brand|escapejs|default:"[]" }}');
+    const dataBrandMon = JSON.parse('{{ data_brand_money|escapejs|default:"[]" }}');
+    
+    const labelsChannel = JSON.parse('{{ labels_channel|escapejs|default:"[]" }}');
+    const dataChannel   = JSON.parse('{{ data_channel|escapejs|default:"[]" }}');
+    
+    const labelsCat   = JSON.parse('{{ labels_cat|escapejs|default:"[]" }}');
+    const dataCatMon  = JSON.parse('{{ data_cat_money|escapejs|default:"[]" }}');
+    
     const bucketLab  = JSON.parse('{{ bucket_labels|escapejs }}');
     const bucketCnt  = JSON.parse('{{ bucket_counts|escapejs }}');
     const trendLab   = JSON.parse('{{ date_labels|escapejs }}');
@@ -173,17 +215,38 @@
     const serieFraud = JSON.parse('{{ serie_fraude|escapejs }}');
     const serieFP    = JSON.parse('{{ serie_fp|escapejs }}');
 
-    const mkBar = (id, labels, data, color) => new Chart(document.getElementById(id), {
+    const mkBar = (id, labels, data, color, fmtFunc) => new Chart(document.getElementById(id), {
         type: 'bar',
         data: {labels, datasets: [{data, backgroundColor: color, borderRadius: 6, borderSkipped: false}]},
         options: {
-            plugins: {legend: {display: false}},
-            scales: {x: {ticks: {autoSkip: false}, grid: {display: false}}, y: {beginAtZero: true}}
+            plugins: {
+                legend: {display: false},
+                tooltip: { callbacks: { label: fmtFunc } }
+            },
+            scales: {x: {ticks: {autoSkip: false}, grid: {display: false}}, y: {beginAtZero: true, grid: {color: 'rgba(0,0,0,0.04)'}}}
         }
     });
 
-    mkBar('chartCity', labelsCity, dataCity, colorsFor(labelsCity.length));
-    mkBar('chartCat', labelsCat, dataCat, colorsFor(labelsCat.length));
+    mkBar('chartBrandVol', labelsBrand, dataBrand, colorsFor(labelsBrand.length), (ctx) => `Incidentes: ${ctx.parsed.y}`);
+    mkBar('chartBrandMoney', labelsBrand, dataBrandMon, colorsFor(labelsBrand.length), (ctx) => `Monto en riesgo: S/ ${ctx.parsed.y.toLocaleString()}`);
+    mkBar('chartCategory', labelsCat, dataCatMon, colorsFor(labelsCat.length), (ctx) => `Monto en riesgo: S/ ${ctx.parsed.y.toLocaleString()}`);
+
+    // Channel Doughnut
+    new Chart(document.getElementById('chartChannel'), {
+        type: 'doughnut',
+        data: {
+            labels: labelsChannel,
+            datasets: [{
+                data: dataChannel,
+                backgroundColor: ['#6c3eff', '#10b981', '#f59e0b', '#ef4444'],
+                borderWidth: 0, spacing: 2
+            }]
+        },
+        options: {
+            plugins: {legend: {position:'bottom', labels: {usePointStyle: true, padding: 12}}},
+            cutout: '70%'
+        }
+    });
 
     // Trend
     new Chart(document.getElementById('chartTrend'), {

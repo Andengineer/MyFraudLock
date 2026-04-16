@@ -12,9 +12,9 @@ class UsuarioAdmin(admin.ModelAdmin):
 
 @admin.register(Transaccion)
 class TransaccionAdmin(admin.ModelAdmin):
-    list_display = ('id_transaccion', 'importe', 'category', 'state', 'gender', 'age', 'fecha')
-    list_filter = ('category', 'state', 'gender')
-    search_fields = ('category', 'state')
+    list_display = ('id_transaccion', 'importe', 'card_brand', 'customer_region', 'category', 'fecha')
+    list_filter = ('card_brand', 'customer_region', 'card_type')
+    search_fields = ('category', 'customer_region', 'issuer_bank')
     date_hierarchy = 'fecha'
 
 

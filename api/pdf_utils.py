@@ -201,11 +201,15 @@ def build_incidente_detalle_pdf(incidente):
             ["Campo", "Valor"],
             ["ID Transacción", str(tx.id_transaccion)],
             ["Importe", f"S/ {tx.importe}"],
-            ["Categoría", tx.category],
-            ["Estado/Distrito", tx.state],
-            ["Género", tx.gender.upper() if tx.gender else "—"],
-            ["Edad", str(tx.age)],
-            ["Población ciudad", str(tx.city_pop)],
+            ["Marca de Tarjeta", tx.card_brand.upper() if tx.card_brand else "—"],
+            ["Tipo de Tarjeta", tx.card_type.title() if tx.card_type else "—"],
+            ["Banco Emisor", tx.issuer_bank.upper() if tx.issuer_bank else "—"],
+            ["Canal de Pago", tx.payment_channel.title() if tx.payment_channel else "—"],
+            ["Código ECI", str(tx.eci_code)],
+            ["Región", tx.customer_region.title() if tx.customer_region else "—"],
+            ["Categoría", tx.category or "—"],
+            ["Nro. Ítems", str(tx.num_items)],
+            ["Intentos fallidos", str(tx.previous_failed_attempts)],
         ]
         t2 = Table(tx_info, colWidths=[50 * mm, 110 * mm])
         t2.setStyle(TABLE_STYLE)

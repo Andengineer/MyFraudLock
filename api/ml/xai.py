@@ -1,4 +1,9 @@
 # api/ml/xai.py
+"""
+Módulo de Explicabilidad (XAI) para el modelo de detección de fraude.
+Usa SHAP (DeepExplainer / KernelExplainer) para generar explicaciones
+de las predicciones del modelo Deep Learning.
+"""
 from pathlib import Path
 import json, numpy as np, pandas as pd
 from joblib import load
@@ -14,24 +19,23 @@ try:
             pass
         _ctmod._RemainderColsList = _RemainderColsList  # monkey-patch
 except Exception:
-    # Si por algún motivo no existe el módulo interno, seguimos;
-    # el objetivo es solo añadir el atributo faltante cuando aplica.
     pass
 
 ML_DIR = Path(__file__).resolve().parent
-MODEL_PATH = ML_DIR / "dnn_best.keras"
+MODEL_PATH   = ML_DIR / "best_model.keras"
 PREPROC_PATH = ML_DIR / "preprocessor.joblib"
-FEATS_PATH = ML_DIR / "feature_names.json"
-BG_PATH = ML_DIR / "background.npy"
+FEATS_PATH   = ML_DIR / "feature_names.json"
+BG_PATH      = ML_DIR / "background.npy"
 GROUPMAP_PATH = ML_DIR / "group_map.json"
 
-# Carga lazy (en la primera llamada), para que runserver no crashee al importar el módulo
+# Carga lazy (en la primera llamada)
 _model = None
 _preproc = None
 _feature_names = None
 _background = None
 _group_map = None
 _explainer = None
+
 
 def _ensure_artifacts():
     """Carga artefactos y el explainer una sola vez (lazy)."""
@@ -54,6 +58,7 @@ def _ensure_artifacts():
     # 2) Inicializar explainer
     _init_explainer()
 
+
 def _init_explainer():
     """DeepExplainer si se puede, KernelExplainer de fallback."""
     global _explainer
@@ -62,39 +67,88 @@ def _init_explainer():
     try:
         _explainer = shap.DeepExplainer(_model, _background)
     except Exception:
-        _explainer = shap.KernelExplainer(lambda X: _model.predict(X, verbose=0), _background)
+        _explainer = shap.KernelExplainer(
+            lambda X: _model.predict(X, verbose=0), _background
+        )
+
 
 def _transform(payload: dict) -> np.ndarray:
-    # payload debe traer TODAS las columnas crudas que espera el preprocesador
+    """Transforma el payload crudo usando el preprocesador guardado."""
     df = pd.DataFrame([payload])
     X = _preproc.transform(df)
     if hasattr(X, "toarray"):
         X = X.toarray()
     return X
 
+
+# ── Mapeo de nombres legibles para explicabilidad ────────────────────
+FEATURE_DISPLAY_NAMES = {
+    "transaction_amount": "Monto Transacción",
+    "amt_log1p": "Monto (log)",
+    "amount_deviation": "Desviación de monto",
+    "hour": "Hora",
+    "hour_sin": "Hora (sen)",
+    "hour_cos": "Hora (cos)",
+    "day_of_week": "Día",
+    "day_sin": "Día (sen)",
+    "day_cos": "Día (cos)",
+    "month": "Mes",
+    "month_sin": "Mes (sen)",
+    "month_cos": "Mes (cos)",
+    "is_weekend": "Fin de Semana",
+    "is_new_customer": "Cliente Nuevo",
+    "is_high_risk_hour": "Hora de Riesgo",
+    "eci_code": "Código ECI",
+    "has_3ds": "Aprobación 3DS",
+    "has_discount": "Descuento Aplicado",
+    "city_population": "Población",
+    "num_items": "Cantidad de Ítems",
+    "num_installments": "Cuotas",
+    "previous_failed_attempts": "Intentos Fallidos",
+    "days_since_first_purchase": "Antigüedad (días)",
+    "avg_historical_amount": "Prom. Histórico",
+    "card_brand": "Marca de Tarjeta",
+    "card_type": "Tipo de Tarjeta",
+    "issuer_bank": "Banco Emisor",
+    "payment_channel": "Canal de Pago",
+    "customer_region": "Región",
+    "category": "Categoría de Producto"
+}
+
+
 def _aggregate(feature_contrib: dict) -> dict:
-    # Agrupa impactos por feature base usando group_map si existe; si no, por prefijo antes del "_"
-    if not _group_map:
-        agg = {}
-        for name, val in feature_contrib.items():
-            base = name.split("_")[0]
-            agg[base] = agg.get(base, 0.0) + val
-        return agg
-    agg, used = {}, set()
-    for base, cols in _group_map.items():
-        s = sum(feature_contrib.get(c, 0.0) for c in cols)
-        if s != 0.0:
-            agg[base] = agg.get(base, 0.0) + s
-        used.update(cols)
+    """
+    Agrupa impactos One-Hot por feature base.
+    """
+    categories = [
+        "card_brand", "card_type", "issuer_bank",
+        "payment_channel", "customer_region", "category"
+    ]
+    agg = {}
     for name, val in feature_contrib.items():
-        if name not in used:
-            agg[name] = agg.get(name, 0.0) + val
+        base = name
+        for cat in categories:
+            if name.startswith(cat + "_"):
+                base = cat
+                break
+        agg[base] = agg.get(base, 0.0) + val
     return agg
+
 
 def predict_and_explain(payload: dict, top_k: int = 6, aggregate: bool = True):
     """
-    payload DEBE contener estas claves crudas (con tus nombres confirmados):
-      ['amt','amt_log1p','age','hour','weekday','month','is_weekend','city_pop','category','state','gender']
+    Recibe un dict con las features crudas y retorna (score, explanation).
+
+    payload debe contener claves numéricas:
+      transaction_amount, amt_log1p, hour, day_of_week, month, is_weekend,
+      eci_code, has_3ds, city_population, num_items, has_discount,
+      num_installments, previous_failed_attempts, is_new_customer,
+      days_since_first_purchase, avg_historical_amount, is_high_risk_hour,
+      amount_deviation, hour_sin, hour_cos, day_sin, day_cos, month_sin, month_cos
+
+    Y categóricas:
+      card_brand, card_type, issuer_bank, payment_channel,
+      customer_region, category
     """
     _ensure_artifacts()
 
@@ -102,16 +156,58 @@ def predict_and_explain(payload: dict, top_k: int = 6, aggregate: bool = True):
     prob = float(_model.predict(X, verbose=0).ravel()[0])
     score = float(prob * 100)
 
+    # SHAP values
     shap_vals = _explainer.shap_values(X)
     sv = shap_vals[0][0] if isinstance(shap_vals, list) else shap_vals[0]
-    sv = np.squeeze(sv)  # (74,1) → (74,) or keep (74,) as-is
+    sv = np.squeeze(sv)
+
     contrib = {name: float(sv[i]) for i, name in enumerate(_feature_names)}
+
     if aggregate:
         contrib = _aggregate(contrib)
+
     ordered = sorted(contrib.items(), key=lambda kv: abs(kv[1]), reverse=True)[:top_k]
+
+    # Añadir nombres legibles y lógica de negocio
+    factors = []
+    explicacion_negocio = []
+    
+    for k, v in ordered:
+        display = FEATURE_DISPLAY_NAMES.get(k, k.replace("_", " ").title())
+        factors.append({"feature": k, "display_name": display, "impact": v})
+
+        # Generar reglas de negocio para los factores agravantes (aumentan riesgo)
+        if v > 0.05:  # umbral mínimo para destacarlo narrativamente
+            if k == "amount_deviation" and payload.get("amount_deviation", 0) > 0.2:
+                explicacion_negocio.append("El monto supera significativamente el promedio histórico de compras de este usuario.")
+            elif k == "is_new_customer" and payload.get("is_new_customer") == 1:
+                explicacion_negocio.append("Es un cliente nuevo y sin historial verificado en la plataforma.")
+            elif k == "previous_failed_attempts" and payload.get("previous_failed_attempts", 0) > 0:
+                explicacion_negocio.append(f"Se detectaron {payload.get('previous_failed_attempts')} intentos de pago fallidos previos en corto tiempo.")
+            elif k == "transaction_amount":
+                # Only warn if the impact is significantly high
+                explicacion_negocio.append(f"El monto transaccional neto representa un volumen inusual o de alto riesgo.")
+            elif k == "is_high_risk_hour" and payload.get("is_high_risk_hour") == 1:
+                explicacion_negocio.append("La transacción se intentó en un horario atípico considerado de alto riesgo (ej. madrugada).")
+            elif k == "category":
+                cat = str(payload.get("category", "")).replace("_", " ").title()
+                explicacion_negocio.append(f"La categoría de producto ({cat}) refleja alta vulnerabilidad a intentos de fraude en este contexto.")
+            elif k == "card_brand" or k == "issuer_bank":
+                explicacion_negocio.append("El bin de tarjeta (emisor/franquicia) está correlacionado con esquemas de fraude detectados recientemente.")
+            elif k == "has_3ds" and payload.get("has_3ds") == 0:
+                explicacion_negocio.append("El pago carece de mecanismo de verificación dinámico 3D Secure (baja fricción).")
+            elif k == "num_items" and payload.get("num_items", 0) > 2:
+                explicacion_negocio.append("La cantidad múltiple de artículos sugiere comportamiento tipo 'acaparamiento' fraudulento.")
+            elif k == "customer_region":
+                explicacion_negocio.append("La ubicación o región del incidente cruza con zonas de concurrencia de fraude o desconectadas de sus patrones habituales.")
+
+    # Deduplicar
+    explicacion_negocio = list(dict.fromkeys(explicacion_negocio))
+
     explanation = {
-        "top_factors": [{"feature": k, "impact": v} for k, v in ordered],
+        "top_factors": factors,
+        "explicacion_negocio": explicacion_negocio,
         "sum_abs": float(sum(abs(v) for v in contrib.values())),
-        "prob": round(prob, 6)  # <-- agrega esto para ver si el modelo satura
+        "prob": round(prob, 6),
     }
     return score, explanation

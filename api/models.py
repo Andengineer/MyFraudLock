@@ -36,17 +36,77 @@ class Usuario(models.Model):
 
 
 class Transaccion(models.Model):
-    """Transacción financiera que alimenta el modelo de ML."""
+    """Transacción financiera que alimenta el modelo de ML (Deep Learning)."""
 
     id_transaccion = models.AutoField(primary_key=True)
     importe = models.DecimalField(max_digits=12, decimal_places=2)
     fecha = models.DateTimeField(auto_now_add=True)
 
-    category = models.CharField(max_length=32)
-    state = models.CharField(max_length=32)
-    gender = models.CharField(max_length=1)   # 'm' / 'f'
-    age = models.PositiveSmallIntegerField()
-    city_pop = models.PositiveIntegerField()
+    # ── Datos de tarjeta / pago ──────────────────────────────────────
+    card_brand = models.CharField(
+        max_length=20, default='visa',
+        help_text='Marca: visa, mastercard, amex, diners, other'
+    )
+    card_type = models.CharField(
+        max_length=10, default='debit',
+        help_text='Tipo: credit, debit'
+    )
+    issuer_bank = models.CharField(
+        max_length=30, default='bcp',
+        help_text='Banco emisor peruano'
+    )
+    payment_channel = models.CharField(
+        max_length=15, default='web',
+        help_text='Canal: web, mobile, app'
+    )
+    eci_code = models.PositiveSmallIntegerField(
+        default=5,
+        help_text='ECI de autenticación 3DS (0,2,5,6,7,11)'
+    )
+    num_installments = models.PositiveSmallIntegerField(
+        default=0,
+        help_text='Número de cuotas (0=contado)'
+    )
+
+    # ── Datos del cliente / ubicación ────────────────────────────────
+    customer_region = models.CharField(
+        max_length=30, default='lima',
+        help_text='Región/departamento del cliente'
+    )
+    city_population = models.PositiveIntegerField(
+        default=0,
+        help_text='Población de la ciudad del cliente'
+    )
+    is_new_customer = models.BooleanField(
+        default=True,
+        help_text='¿Es primera compra del cliente?'
+    )
+    days_since_first_purchase = models.PositiveIntegerField(
+        default=0,
+        help_text='Días desde la primera compra del cliente'
+    )
+    avg_historical_amount = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        help_text='Monto promedio histórico del cliente'
+    )
+
+    # ── Datos del pedido ─────────────────────────────────────────────
+    category = models.CharField(
+        max_length=32, default='otros',
+        help_text='Categoría del producto principal'
+    )
+    num_items = models.PositiveSmallIntegerField(
+        default=1,
+        help_text='Número de ítems en el pedido'
+    )
+    has_discount = models.BooleanField(
+        default=False,
+        help_text='¿El pedido tiene descuento?'
+    )
+    previous_failed_attempts = models.PositiveSmallIntegerField(
+        default=0,
+        help_text='Intentos de pago fallidos previos a este'
+    )
 
     def __str__(self):
         return f"Tx #{self.id_transaccion}"
