@@ -44,3 +44,8 @@ protocolo_validacion.md
 requisitos_funcionales.md
 Entrenamiento/
 API_DOCS.md
+*.md
+*.png
+*xlsx
+generar_doc_tesis.py
+populate_templates.py
