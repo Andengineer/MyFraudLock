@@ -16,14 +16,16 @@
     <!-- Main column -->
     <div class="col-lg-8">
         <div class="card animate-in delay-1">
-            <div class="card-header card-brand-header"><h6>Guía rápida</h6></div>
+            <div class="card-header card-brand-header">
+                <h6>Guía rápida</h6>
+            </div>
             <div class="card-body p-0">
                 <div class="accordion accordion-flush" id="helpAccordion">
                     <!-- Estados -->
                     <div class="accordion-item">
                         <h2 class="accordion-header">
                             <button class="accordion-button" type="button" data-bs-toggle="collapse"
-                                    data-bs-target="#helpEstados">
+                                data-bs-target="#helpEstados">
                                 <i class="bi bi-flag me-2 text-brand"></i> Estados de los incidentes
                             </button>
                         </h2>
@@ -32,15 +34,18 @@
                                 <ul class="list-unstyled mb-0">
                                     <li class="d-flex align-items-center gap-2 mb-3">
                                         <span class="legend-dot" style="background:var(--status-pending)"></span>
-                                        <span><span class="badge bg-warning text-dark">Pendiente</span> — En espera de revisión por un analista.</span>
+                                        <span><span class="badge bg-warning text-dark">Pendiente</span> — En espera de
+                                            revisión por un analista.</span>
                                     </li>
                                     <li class="d-flex align-items-center gap-2 mb-3">
                                         <span class="legend-dot" style="background:var(--status-fraud)"></span>
-                                        <span><span class="badge bg-danger">Fraude confirmado</span> — Validado como transacción fraudulenta.</span>
+                                        <span><span class="badge bg-danger">Fraude confirmado</span> — Validado como
+                                            transacción fraudulenta.</span>
                                     </li>
                                     <li class="d-flex align-items-center gap-2">
                                         <span class="legend-dot" style="background:var(--status-ok)"></span>
-                                        <span><span class="badge bg-success">Falso positivo</span> — La transacción era legítima.</span>
+                                        <span><span class="badge bg-success">Falso positivo</span> — La transacción era
+                                            legítima.</span>
                                     </li>
                                 </ul>
                             </div>
@@ -51,39 +56,71 @@
                     <div class="accordion-item">
                         <h2 class="accordion-header">
                             <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                                    data-bs-target="#helpScore">
+                                data-bs-target="#helpScore">
                                 <i class="bi bi-speedometer2 me-2 text-brand"></i> Score de Riesgo
                             </button>
                         </h2>
                         <div id="helpScore" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
                             <div class="accordion-body">
-                                <p>El sistema calcula un <strong>score de riesgo (0–100)</strong>. A mayor score, mayor probabilidad de fraude.</p>
-                                <p>El <strong>umbral actual</strong> es <strong>{{ config.umbral_score|default:70 }}%</strong>.
-                                   Las transacciones con score <code>≥</code> umbral generan <em>incidentes</em> automáticamente.</p>
+                                <p>El sistema calcula un <strong>score de riesgo (0–100)</strong>. A mayor score, mayor
+                                    probabilidad de fraude.</p>
+                                <p>El <strong>umbral actual</strong> es <strong>{{ config.umbral_score|default:70
+                                        }}%</strong>.
+                                    Las transacciones con score <code>≥</code> umbral generan <em>incidentes</em>
+                                    automáticamente.</p>
                                 <div class="alert alert-info mb-0">
                                     <i class="bi bi-lightbulb me-1"></i>
                                     El modelo de Deep Learning analiza características de la transacción como
                                     <code>importe</code>, <code>marca de tarjeta</code>,
                                     <code>banco emisor</code>, <code>código ECI</code>, <code>región</code>,
                                     <code>categoría</code>, <code>intentos fallidos</code>
-                                    y derivados temporales (hora, día, etc.). La explicación SHAP muestra los factores de mayor influencia.
+                                    y derivados temporales (hora, día, etc.). La explicación SHAP muestra los factores
+                                    de mayor influencia.
                                 </div>
                             </div>
                         </div>
                     </div>
-
+                    <!-- Explicabilidad -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                data-bs-target="#helpXAI">
+                                <i class="bi bi-robot me-2 text-brand"></i> Explicabilidad de la IA (XAI)
+                            </button>
+                        </h2>
+                        <div id="helpXAI" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                            <div class="accordion-body">
+                                <p>Además de calcular el score, el sistema despliega el razonamiento de la red neuronal
+                                    empleando <strong>SHAP (Valores de Shapley)</strong>.</p>
+                                <ul class="mb-0">
+                                    <li class="mb-2"><strong>Reglas en Español:</strong> En lugar de lidiar con el
+                                        código bruto, verás alertas claras como "Varias compras seguidas abortadas",
+                                        logrando fácil visibilidad sin conocimientos de código.</li>
+                                    <li class="mb-2"><strong>Barras de Impacto:</strong> Las variables rojas empujan la
+                                        predicción al lado de Bloqueo (Fraude), mientras que las verdes atenúan la
+                                        sospecha.</li>
+                                    <li><strong>Diccionario Nativo:</strong> Los ingenieros ya tradujeron los factores
+                                        principales de <code>previous_failed_attempts</code> a "Múltiples Intentos
+                                        Fallidos".</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
                     <!-- Simulación de Riesgo -->
                     <div class="accordion-item">
                         <h2 class="accordion-header">
                             <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                                    data-bs-target="#helpAudit">
+                                data-bs-target="#helpAudit">
                                 <i class="bi bi-search me-2 text-brand"></i> Simulación de Riesgo
                             </button>
                         </h2>
                         <div id="helpAudit" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
                             <div class="accordion-body">
                                 <ul class="mb-3">
-                                    <li class="mb-2"><strong>Individual:</strong> ingresa <code>importe</code>, <code>marca de tarjeta</code>, <code>tipo</code>, <code>banco emisor</code>, <code>ECI</code>, <code>región</code>, <code>categoría</code>, etc.</li>
+                                    <li class="mb-2"><strong>Individual:</strong> ingresa <code>importe</code>,
+                                        <code>marca de tarjeta</code>, <code>tipo</code>, <code>banco emisor</code>,
+                                        <code>ECI</code>, <code>región</code>, <code>categoría</code>, etc.
+                                    </li>
                                     <li class="mb-2">
                                         <strong>Por lote (CSV):</strong> sube un archivo con cabeceras mínimas:
                                         <code>importe,card_brand,card_type,customer_region,category</code>.
@@ -100,19 +137,48 @@
                         </div>
                     </div>
 
+                    <!-- Dashboard Ejecutivo -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                data-bs-target="#helpDashboardA">
+                                <i class="bi bi-bar-chart-line me-2 text-brand"></i> Métricas Ejecutivas (Dashboard)
+                            </button>
+                        </h2>
+                        <div id="helpDashboardA" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                            <div class="accordion-body">
+                                <p>Un panel diseñado para la vista general gerencial del negocio (ROI del modelo de Deep
+                                    Learning).</p>
+                                <ul class="mb-0">
+                                    <li class="mb-2"><strong>Dinero Evadido / Protegido:</strong> Recopila en base a los
+                                        registros de "Fraudes Confirmados" para dar el volumen exacto de dinero
+                                        preservado (S/).</li>
+                                    <li class="mb-2"><strong>Fraude por Canal Operativo (Dona):</strong> Descubra
+                                        instantáneamente si los atacantes dirigen sus robots mediante Mobile, App Física
+                                        o PC.</li>
+                                    <li><strong>Pérdidas de Riesgo por Categoría:</strong> Valore si su inventario
+                                        tecnológico está bajo mayor ataque volumétrico (S/) respecto al general.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Buenas prácticas -->
                     <div class="accordion-item">
                         <h2 class="accordion-header">
                             <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                                    data-bs-target="#helpBest">
+                                data-bs-target="#helpBest">
                                 <i class="bi bi-check2-circle me-2 text-brand"></i> Buenas prácticas
                             </button>
                         </h2>
                         <div id="helpBest" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
                             <div class="accordion-body">
                                 <ul class="mb-0">
-                                    <li class="mb-2">Usa valores de <em>marca de tarjeta</em>, <em>banco emisor</em> y <em>región</em> incluidos en el modelo.</li>
-                                    <li class="mb-2">El código ECI indica el nivel de autenticación 3DS: 5=Visa verificado, 7=Sin 3DS, 0=Sin autenticación.</li>
+                                    <li class="mb-2">Usa valores de <em>marca de tarjeta</em>, <em>banco emisor</em> y
+                                        <em>región</em> incluidos en el modelo.
+                                    </li>
+                                    <li class="mb-2">El código ECI indica el nivel de autenticación 3DS: 5=Visa
+                                        verificado, 7=Sin 3DS, 0=Sin autenticación.</li>
                                     <li>Las fechas se muestran en tu zona horaria; internamente se guardan en UTC.</li>
                                 </ul>
                             </div>
@@ -126,25 +192,33 @@
     <!-- Sidebar -->
     <div class="col-lg-4">
         <div class="card mb-3 animate-in delay-2">
-            <div class="card-header"><h6>Accesos rápidos</h6></div>
+            <div class="card-header">
+                <h6>Accesos rápidos</h6>
+            </div>
             <div class="list-group list-group-flush">
-                <a class="list-group-item list-group-item-action d-flex align-items-center gap-2" href="{% url 'simulacion_front' %}">
+                <a class="list-group-item list-group-item-action d-flex align-items-center gap-2"
+                    href="{% url 'simulacion_front' %}">
                     <i class="bi bi-search text-brand"></i> Simulación de Riesgo (Individual / Lote)
                 </a>
-                <a class="list-group-item list-group-item-action d-flex align-items-center gap-2" href="{% url 'configuracion_front' %}">
+                <a class="list-group-item list-group-item-action d-flex align-items-center gap-2"
+                    href="{% url 'configuracion_front' %}">
                     <i class="bi bi-sliders text-brand"></i> Configurar umbral
                 </a>
-                <a class="list-group-item list-group-item-action d-flex align-items-center gap-2" href="{% url 'incidentes_listado' %}">
+                <a class="list-group-item list-group-item-action d-flex align-items-center gap-2"
+                    href="{% url 'incidentes_listado' %}">
                     <i class="bi bi-list-task text-brand"></i> Ver incidentes
                 </a>
-                <a class="list-group-item list-group-item-action d-flex align-items-center gap-2" href="{% url 'dashboard' %}">
+                <a class="list-group-item list-group-item-action d-flex align-items-center gap-2"
+                    href="{% url 'dashboard' %}">
                     <i class="bi bi-speedometer2 text-brand"></i> Dashboard
                 </a>
             </div>
         </div>
 
         <div class="card animate-in delay-3">
-            <div class="card-header"><h6>Soporte</h6></div>
+            <div class="card-header">
+                <h6>Soporte</h6>
+            </div>
             <div class="card-body">
                 <p class="mb-2 fw-semibold">¿Dudas o incidencias?</p>
                 <ul class="mb-0 small">
@@ -159,16 +233,19 @@
 
 <style>
     .legend-dot {
-        width: .75rem; height: .75rem;
+        width: .75rem;
+        height: .75rem;
         border-radius: 50%;
         display: inline-block;
         flex-shrink: 0;
     }
+
     .accordion-button:not(.collapsed) {
         background: var(--brand-50);
         color: var(--brand-700);
         font-weight: 600;
     }
+
     .accordion-button:focus {
         box-shadow: 0 0 0 .2rem rgba(108, 62, 255, .15);
     }

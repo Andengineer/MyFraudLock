@@ -228,14 +228,24 @@ def build_incidente_detalle_pdf(incidente):
                 if factors:
                     rows = [["Factor", "Valor", "Impacto"]]
                     for f in factors:
+                        factor_name = f.get("display_name", f.get("feature", "—"))
                         rows.append([
-                            f.get("feature", "—"),
+                            factor_name,
                             str(f.get("value", "—")),
                             f"{f.get('impact', 0):.4f}",
                         ])
-                    t3 = Table(rows, colWidths=[50 * mm, 50 * mm, 60 * mm])
+                    t3 = Table(rows, colWidths=[65 * mm, 45 * mm, 50 * mm])
                     t3.setStyle(TABLE_STYLE)
                     el.append(t3)
+                    
+                    # Añadir las reglas de negocio si existen
+                    negocio = exp.get("explicacion_negocio", [])
+                    if negocio:
+                        el.append(Spacer(1, 4 * mm))
+                        el.append(Paragraph("Conclusión Funcional (Reglas)", STYLE_H2))
+                        for regla in negocio:
+                            el.append(Paragraph(f"• {regla}", STYLE_BODY))
+                            el.append(Spacer(1, 2 * mm))
                 else:
                     el.append(Paragraph(
                         str(exp)[:500], STYLE_SMALL

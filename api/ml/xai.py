@@ -174,7 +174,8 @@ def predict_and_explain(payload: dict, top_k: int = 6, aggregate: bool = True):
     
     for k, v in ordered:
         display = FEATURE_DISPLAY_NAMES.get(k, k.replace("_", " ").title())
-        factors.append({"feature": k, "display_name": display, "impact": v})
+        val_raw = payload.get(k, "—")
+        factors.append({"feature": k, "display_name": display, "impact": v, "value": val_raw})
 
         # Generar reglas de negocio para los factores agravantes (aumentan riesgo)
         if v > 0.05:  # umbral mínimo para destacarlo narrativamente
