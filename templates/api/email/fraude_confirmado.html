@@ -4,9 +4,9 @@
 <body style="margin:0; padding:0; background:#f4f2fa; font-family:Arial,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px; margin:auto;">
     <tr>
-        <td style="background:linear-gradient(135deg,#991b1b,#dc2626,#ef4444); padding:24px 32px; border-radius:12px 12px 0 0;">
-            <h1 style="margin:0; color:#fff; font-size:20px;">🚨 Fraude Confirmado</h1>
-            <p style="margin:4px 0 0; color:rgba(255,255,255,.6); font-size:13px;">MyFraudLock — Alerta Crítica</p>
+        <td style="background-color:#dc2626; background-image:linear-gradient(135deg,#991b1b,#dc2626,#ef4444); padding:32px 32px 24px 32px; border-radius:12px 12px 0 0; text-align:center;">
+            <h1 style="margin:0; color:#ffffff; font-size:24px; font-weight:bold; text-shadow: 0px 1px 3px rgba(0,0,0,0.3);">🚨 Fraude Confirmado</h1>
+            <p style="margin:8px 0 0; color:#fee2e2; font-size:14px; font-weight:500;">MyFraudLock — Alerta Crítica</p>
         </td>
     </tr>
     <tr>
@@ -14,28 +14,28 @@
             <p style="margin:0 0 16px; font-size:15px; color:#1a1a2e;">
                 Un incidente ha sido marcado como <strong style="color:#ef4444;">Fraude Confirmado</strong>:
             </p>
-            <table width="100%" cellpadding="8" cellspacing="0" style="border:1px solid #e5e7eb; border-radius:8px; font-size:14px;">
+            <table width="100%" cellpadding="10" cellspacing="0" style="border:1px solid #e5e7eb; border-radius:8px; font-size:14px; text-align:left;">
                 <tr style="background:#fef2f2;">
-                    <td style="font-weight:bold; color:#6b7280; width:140px;">ID Incidente</td>
-                    <td style="color:#1a1a2e; font-weight:bold;">#{{ incidente.id_incidente }}</td>
+                    <td style="font-weight:bold; color:#6b7280; width:140px; border-bottom:1px solid #fca5a5;">ID Incidente</td>
+                    <td style="color:#991b1b; font-weight:bold; font-size:15px; border-bottom:1px solid #fca5a5;">#{{ incidente.id_incidente }}</td>
                 </tr>
                 <tr>
-                    <td style="font-weight:bold; color:#6b7280; border-top:1px solid #e5e7eb;">Score de Riesgo</td>
-                    <td style="border-top:1px solid #e5e7eb;">
-                        <span style="background:#ef4444; color:#fff; padding:3px 10px; border-radius:4px; font-weight:bold; font-size:13px;">{{ score|floatformat:1 }}%</span>
+                    <td style="font-weight:bold; color:#6b7280; border-bottom:1px solid #e5e7eb;">Score de Riesgo</td>
+                    <td style="border-bottom:1px solid #e5e7eb;">
+                        <span style="background-color:#ef4444; color:#ffffff; padding:4px 12px; border-radius:6px; font-weight:bold; font-size:14px; letter-spacing:0.5px;">{{ score|floatformat:1 }}%</span>
                     </td>
                 </tr>
-                <tr style="background:#fef2f2;">
-                    <td style="font-weight:bold; color:#6b7280; border-top:1px solid #e5e7eb;">Importe</td>
-                    <td style="border-top:1px solid #e5e7eb;">S/ {{ transaccion.importe }}</td>
+                <tr style="background:#f9fafb;">
+                    <td style="font-weight:bold; color:#6b7280; border-bottom:1px solid #e5e7eb;">Importe</td>
+                    <td style="color:#1a1a2e; font-weight:600; font-size:15px; border-bottom:1px solid #e5e7eb;">S/ {{ transaccion.importe }}</td>
                 </tr>
                 <tr>
-                    <td style="font-weight:bold; color:#6b7280; border-top:1px solid #e5e7eb;">Categoría</td>
-                    <td style="border-top:1px solid #e5e7eb;">{{ transaccion.category }}</td>
+                    <td style="font-weight:bold; color:#6b7280; border-bottom:1px solid #e5e7eb;">Categoría</td>
+                    <td style="color:#374151; font-weight:500; text-transform:capitalize; border-bottom:1px solid #e5e7eb;">{{ transaccion.category|default:"Desconocido" }}</td>
                 </tr>
                 <tr style="background:#fef2f2;">
-                    <td style="font-weight:bold; color:#6b7280; border-top:1px solid #e5e7eb;">Comentario</td>
-                    <td style="border-top:1px solid #e5e7eb;">{{ incidente.comentario|default:"Sin comentario" }}</td>
+                    <td style="font-weight:bold; color:#6b7280;">Comentario Final</td>
+                    <td style="color:#7f1d1d; font-weight:500; font-style:italic;">"{{ incidente.comentario|default:'Sin comentario' }}"</td>
                 </tr>
             </table>
             <p style="margin:20px 0 0; font-size:13px; color:#6b7280;">

@@ -182,22 +182,19 @@ LOGGING = {
 }
 
 # ---------------------------------------------------------------------------
-# Email
+# Email (Configuración Outlook / Office 365)
 # ---------------------------------------------------------------------------
 
-EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+# Forzamos servidor SMTP tanto para desarrollo local como para producción
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
+EMAIL_USE_TLS = True
 
-if DEBUG and not EMAIL_HOST_USER:
-    # Si estamos en desarrollo y no se configuró email, imprimimos en consola
-    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-else:
-    # Usamos SMTP (producción o si se configuró explícitamente)
-    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-    EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
-    EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
-    EMAIL_USE_TLS = True
-    EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+# Credenciales Inyectadas por Default
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'lamboite10avellaneda@gmail.com')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'ydhpmmxujrraabjn')
 
 DEFAULT_FROM_EMAIL = os.environ.get(
-    'DEFAULT_FROM_EMAIL', 'MyFraudLock <noreply@myfraudlock.com>'
+    'DEFAULT_FROM_EMAIL', f'MyFraudLock <{EMAIL_HOST_USER}>'
 )
