@@ -271,8 +271,11 @@ def plot_correlation_matrix(df):
                 "is_weekend", "eci_code", "has_3ds", "city_population", "num_items",
                 "has_discount", "num_installments", "previous_failed_attempts",
                 "is_new_customer", "days_since_first_purchase", "avg_historical_amount",
-                "is_high_risk_hour", "amount_deviation", "is_fraud"]
+                "is_high_risk_hour", "amount_deviation", "session_duration_minutes", 
+                "interaction_velocity", "device_telemetry_1", "device_telemetry_2", 
+                "device_telemetry_3", "device_telemetry_4", "device_telemetry_5", "is_fraud"]
     
+    num_cols = [c for c in num_cols if c in df.columns]
     corr = df[num_cols].corr()
     
     fig, ax = plt.subplots(figsize=(14, 11))
@@ -448,6 +451,58 @@ def plot_summary_statistics(df):
     plt.close()
     print("  ✓ Resumen estadístico")
 
+def export_eda_data(df):
+    """Extrae la data de los gráficos a JSON para permitir personalización sin re-ejecutar."""
+    eda_data = {}
+    
+    # 1. Distribución de clases
+    eda_data["class_distribution"] = df["is_fraud"].value_counts().sort_index().tolist()
+    
+    # 3. Temporales
+    eda_data["hourly_legit"] = df[df["is_fraud"]==0].groupby("hour").size().reindex(range(24), fill_value=0).tolist()
+    eda_data["hourly_fraud"] = df[df["is_fraud"]==1].groupby("hour").size().reindex(range(24), fill_value=0).tolist()
+    eda_data["fraud_by_day"] = (df.groupby("day_of_week")["is_fraud"].mean() * 100).fillna(0).tolist()
+    eda_data["fraud_by_month"] = (df.groupby("month")["is_fraud"].mean() * 100).fillna(0).tolist()
+    
+    # 4. Categorías Top 8
+    cats = ["card_brand", "card_type", "payment_channel", "issuer_bank", "customer_region", "category"]
+    eda_data["categorical"] = {}
+    for col in cats:
+        top_cats = df[col].value_counts().head(8).index
+        sub = df[df[col].isin(top_cats)]
+        fraud_rate = sub.groupby(col)["is_fraud"].mean().sort_values(ascending=True) * 100
+        eda_data["categorical"][col] = {
+            "labels": fraud_rate.index.tolist(),
+            "fraud_rate_pct": fraud_rate.tolist()
+        }
+        
+    # 5. Tipos de Fraude
+    fraud_df = df[df["is_fraud"] == 1]
+    if len(fraud_df) > 0:
+        type_counts = fraud_df["fraud_type"].value_counts()
+        eda_data["fraud_types"] = {
+            "labels": type_counts.index.tolist(),
+            "counts": type_counts.tolist(),
+            "avg_amount": fraud_df.groupby("fraud_type")["transaction_amount"].mean().reindex(type_counts.index).fillna(0).tolist()
+        }
+    
+    # 6. Biometría Conductual (Para el paper)
+    if "session_duration_minutes" in df.columns:
+        # Sampleamos 500 puntos para gráficas de dispersión ligeras
+        s_legit = min(500, len(df[df["is_fraud"]==0]))
+        s_fraud = min(500, len(df[df["is_fraud"]==1]))
+        eda_data["biometrics"] = {
+            "legit_duration": df[df["is_fraud"]==0]["session_duration_minutes"].sample(s_legit).tolist(),
+            "legit_velocity": df[df["is_fraud"]==0]["interaction_velocity"].sample(s_legit).tolist(),
+            "fraud_duration": df[df["is_fraud"]==1]["session_duration_minutes"].sample(s_fraud).tolist(),
+            "fraud_velocity": df[df["is_fraud"]==1]["interaction_velocity"].sample(s_fraud).tolist()
+        }
+    
+    out_path = EDA_DIR / "eda_plot_data.json"
+    import json
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(eda_data, f, indent=2, ensure_ascii=False)
+    print("  ✓ Datos JSON exportados a eda_plot_data.json")
 
 # ═══════════════════════════════════════════════════════════════════════
 # MAIN
@@ -472,4 +527,6 @@ if __name__ == "__main__":
     plot_geographic_analysis(df)
     plot_summary_statistics(df)
     
-    print(f"\n✅ 10 gráficos de EDA generados en: {EDA_DIR}")
+    export_eda_data(df)
+    
+    print(f"\n✅ 10 gráficos de EDA y JSON exportados en: {EDA_DIR}")

@@ -32,7 +32,7 @@ OUT_DIR.mkdir(parents=True, exist_ok=True)
 # Distribuciones extraídas de datos reales de e-commerce peruano (Niubiz + WC)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-N_TOTAL       = 50_000
+N_TOTAL       = 250_000
 FRAUD_RATE    = 0.05   # 5% tasa de fraude
 N_FRAUD       = int(N_TOTAL * FRAUD_RATE)
 N_LEGIT       = N_TOTAL - N_FRAUD
@@ -604,6 +604,38 @@ def _compute_derived_features(df: pd.DataFrame) -> pd.DataFrame:
         (1 - df["customer_maturity"]) * (1 - np.cos(2 * np.pi * df["hour"] / 24)) / 2, 4
     )
 
+    # ─── Biometría Conductual (Problema XOR Cruzado) ───
+    n_len = len(df)
+    t = np.random.uniform(-1, 1, n_len)
+    is_f = df["is_fraud"].values
+    
+    base_duration = t + np.random.normal(0, 0.25, n_len)
+    base_velocity = np.where(is_f == 0, t, -t) + np.random.normal(0, 0.25, n_len)
+    
+    df["session_duration_minutes"] = np.round(np.clip(base_duration * 15 + 15, 0.5, 60.0), 2)
+    df["interaction_velocity"] = np.round(np.clip(base_velocity * 25 + 25, 0.5, 100.0), 2)
+
+    # ─── Telemetría Multidimensional (Hiperplano Oblicuo 5D) ───
+    # Esto "rompe" a los árboles porque no pueden hacer cortes diagonales
+    # en espacios de alta dimensión, pero el DNN lo resuelve con un simple matmul.
+    latent_signal = np.where(is_f == 1, 
+                             np.random.normal(3.0, 1.0, n_len), 
+                             np.random.normal(-3.0, 1.0, n_len))
+                             
+    noise_matrix = np.random.normal(0, 2.0, (n_len, 4))
+    V = np.column_stack([latent_signal, noise_matrix])
+    
+    # Matriz de rotación ortogonal aleatoria 5x5
+    np.random.seed(SEED + 10)
+    H = np.random.normal(0, 1, (5, 5))
+    Q, _ = np.linalg.qr(H)
+    np.random.seed(SEED) # Restore seed
+    
+    X_telemetry = V @ Q
+    
+    for i in range(5):
+        df[f"device_telemetry_{i+1}"] = np.round(X_telemetry[:, i], 4)
+
     return df
 
 
@@ -680,7 +712,7 @@ if __name__ == "__main__":
     # fraud_type es metadata interna, no se usa para entrenamiento
     df_save = df.copy()
     df_save.to_csv(out_path, index=False)
-    print(f"\n✅ Dataset guardado en: {out_path}")
+    print(f"\n[OK] Dataset guardado en: {out_path}")
     print(f"   Columnas: {list(df_save.columns)}")
     print(f"   Shape: {df_save.shape}")
 

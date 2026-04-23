@@ -46,7 +46,7 @@ from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline as SKPipeline
 from sklearn.metrics import (
     precision_score, recall_score, f1_score, roc_auc_score,
-    confusion_matrix, matthews_corrcoef, average_precision_score, precision_recall_curve
+    confusion_matrix, matthews_corrcoef, average_precision_score, precision_recall_curve, roc_curve
 )
 
 class NumpyEncoder(json.JSONEncoder):
@@ -111,6 +111,9 @@ NUMERIC_FEATURES = [
     # Non-linear interaction features (ventaja DNN sobre árboles)
     "amt_hour_interaction", "amt_fail_interaction", "risk_score_smooth",
     "amt_pop_sigmoid", "customer_maturity", "night_newcust_score",
+    "session_duration_minutes", "interaction_velocity",
+    "device_telemetry_1", "device_telemetry_2", "device_telemetry_3",
+    "device_telemetry_4", "device_telemetry_5",
 ]
 CATEGORICAL_FEATURES = [
     "card_brand", "card_type", "issuer_bank", "payment_channel",
@@ -526,8 +529,7 @@ def evaluate_model(model, X_test, y_test, is_xgb=False):
         y_proba = model.predict_proba(X_test)[:, 1]
     else:
         y_proba = model.predict(X_test, verbose=0).ravel()
-    y_pred = (y_proba >= 0.5).astype(int)
-    metrics = compute_metrics(y_test, y_proba, y_pred)
+    metrics, y_pred = compute_metrics(y_test, y_proba)
     return metrics, y_proba, y_pred
 
 
@@ -831,6 +833,8 @@ def main():
     best_f1 = 0
     best_balance = ""
     best_model = ""
+    best_auc = 0.0
+    best_cost = 0.0
 
     for bal, models in all_results.items():
         for model_name, res in models.items():
@@ -844,6 +848,8 @@ def main():
                 best_f1 = m["f1"]
                 best_balance = bal
                 best_model = model_name
+                best_auc = m["auc_roc"]
+                best_cost = m["costo_negocio"]
 
     print("-" * 100)
     print(f"🏆 GANADOR: {MODEL_LABELS[best_model]} + "
@@ -856,8 +862,10 @@ def main():
     plot_balance_heatmap(all_results)
     plot_balance_bars(all_results)
     generate_balance_table(all_results)
-    plot_roc_curves_by_balance(all_results, y_test)
     plot_confusion_matrices_best(all_results, y_test, best_balance, best_model)
+    
+    # 5. Export JSON plot data
+    export_plot_data_03(all_results, y_test, distributions)
 
     # 5. Save results for next phase
     results_export = {
@@ -891,6 +899,41 @@ def main():
 
     return all_results, best_balance, best_model
 
+def export_plot_data_03(all_results, y_test, distributions):
+    """Extrae la data para poder regenerar gráficos sin entrenar."""
+    import json
+    from sklearn.metrics import roc_curve, confusion_matrix
+    print("  Generando 03_plot_data.json...")
+    
+    plot_data = {
+        "distributions": distributions,
+        "metrics": {},
+        "roc_curves": {},
+        "confusion_matrices": {}
+    }
+    
+    for bal, models in all_results.items():
+        plot_data["metrics"][bal] = {}
+        plot_data["roc_curves"][bal] = {}
+        plot_data["confusion_matrices"][bal] = {}
+        for model_name, res in models.items():
+            plot_data["metrics"][bal][model_name] = res["metrics"]
+            
+            # ROC downsampled for smaller JSON size
+            fpr, tpr, _ = roc_curve(y_test, res["y_proba"])
+            step = max(1, len(fpr) // 200)
+            plot_data["roc_curves"][bal][model_name] = {
+                "fpr": fpr[::step].tolist(),
+                "tpr": tpr[::step].tolist()
+            }
+            
+            cm = confusion_matrix(y_test, res["y_pred"])
+            plot_data["confusion_matrices"][bal][model_name] = cm.tolist()
+            
+    out_path = FIG_DIR / "03_plot_data.json"
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(plot_data, f, indent=2, ensure_ascii=False)
+    print("  ✓ Datos JSON exportados a 03_plot_data.json")
 
 if __name__ == "__main__":
     all_results, best_balance, best_model = main()

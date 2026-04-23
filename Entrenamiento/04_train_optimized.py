@@ -88,6 +88,9 @@ NUMERIC_FEATURES = [
     # Non-linear interaction features (ventaja DNN sobre árboles)
     "amt_hour_interaction", "amt_fail_interaction", "risk_score_smooth",
     "amt_pop_sigmoid", "customer_maturity", "night_newcust_score",
+    "session_duration_minutes", "interaction_velocity",
+    "device_telemetry_1", "device_telemetry_2", "device_telemetry_3",
+    "device_telemetry_4", "device_telemetry_5",
 ]
 CATEGORICAL_FEATURES = [
     "card_brand", "card_type", "issuer_bank", "payment_channel",
@@ -994,6 +997,8 @@ def main():
     with open(MODEL_DIR / "comparison_metrics.json", "w") as f:
         json.dump(metrics_export, f, indent=2, default=str)
 
+    export_plot_data_04(default_results, optimized_results, y_test)
+
     # ─── RESUMEN ─────────────────────────────────────────────────
     print(f"\n{'='*70}")
     print("✅ FASE 2 COMPLETADA")
@@ -1008,9 +1013,44 @@ def main():
     print(f"     F1-Score:   {bm['f1']:.4f}")
     print(f"     Recall:     {bm['recall']:.4f}")
     print(f"     MCC:        {bm['mcc']:.4f}")
-    print(f"\n  ➡️  Ejecuta '05_export_model.py' para copiar al backend")
+    print("\n  ➡️  Ejecuta '05_export_model.py' para copiar al backend")
     print("=" * 70)
 
+
+def export_plot_data_04(default_results, optimized_results, y_test):
+    """Extrae la data para regenerar los gráficos de la Fase 2 en JSON."""
+    import json
+    from sklearn.metrics import roc_curve, precision_recall_curve, confusion_matrix
+    print("\n  Generando 04_plot_data.json...")
+    
+    plot_data = {
+        "roc_curves": {},
+        "pr_curves": {},
+        "confusion_matrices": {}
+    }
+    
+    for name, res in optimized_results.items():
+        fpr, tpr, _ = roc_curve(y_test, res["y_proba"])
+        step = max(1, len(fpr) // 200)
+        plot_data["roc_curves"][name] = {
+            "fpr": fpr[::step].tolist(),
+            "tpr": tpr[::step].tolist()
+        }
+        
+        prec, rec, _ = precision_recall_curve(y_test, res["y_proba"])
+        step_pr = max(1, len(prec) // 200)
+        plot_data["pr_curves"][name] = {
+            "precision": prec[::step_pr].tolist(),
+            "recall": rec[::step_pr].tolist()
+        }
+        
+        cm = confusion_matrix(y_test, res["y_pred"])
+        plot_data["confusion_matrices"][name] = cm.tolist()
+        
+    out_path = FIG_DIR / "04_plot_data.json"
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(plot_data, f, indent=2, ensure_ascii=False)
+    print("  ✓ Datos JSON exportados a 04_plot_data.json")
 
 if __name__ == "__main__":
     main()
