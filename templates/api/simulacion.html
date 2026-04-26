@@ -129,6 +129,15 @@
                                 <label class="form-label" for="avg_historical_amount">Prom. Historial (S/)</label>
                                 <input class="form-control" id="avg_historical_amount" name="avg_historical_amount" type="number" step="0.01" value="0">
                             </div>
+                            <!-- Biometría conductual (nuevos campos del modelo) -->
+                            <div class="col-md-3">
+                                <label class="form-label" for="session_duration_minutes">Duración Sesión (min)</label>
+                                <input class="form-control" id="session_duration_minutes" name="session_duration_minutes" type="number" step="0.01" placeholder="(Automático)" title="Dejar vacío para simular promedio">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label" for="interaction_velocity">Velocidad Interacción</label>
+                                <input class="form-control" id="interaction_velocity" name="interaction_velocity" type="number" step="0.01" placeholder="(Automático)" title="Dejar vacío para simular promedio">
+                            </div>
                             <div class="col-md-3">
                                 <div class="form-check mt-4">
                                     <input class="form-check-input" type="checkbox" id="is_new_customer" name="is_new_customer">
@@ -250,9 +259,9 @@
                 <p class="mb-2"><b>Formato esperado:</b> <code>importe,card_brand,card_type,customer_region,category</code> (+ campos opcionales)</p>
                 <details class="mb-3">
                     <summary class="text-muted small">Ver ejemplo</summary>
-                    <pre class="brand-subtle p-2 rounded mb-0 mt-2" style="font-size:.8rem;">importe,card_brand,card_type,issuer_bank,customer_region,category,eci_code,num_items,previous_failed_attempts
-120.50,visa,debit,bcp,lima,repuestos_moto,5,2,0
-999.90,mastercard,credit,bbva,arequipa,electronica,0,1,3</pre>
+                    <pre class="brand-subtle p-2 rounded mb-0 mt-2" style="font-size:.8rem;">importe,card_brand,card_type,issuer_bank,customer_region,category,eci_code,num_items,previous_failed_attempts,session_duration_minutes,interaction_velocity
+120.50,visa,debit,bcp,lima,repuestos_moto,5,2,0,12.5,25.0
+999.90,mastercard,credit,bbva,arequipa,electronica,0,1,3,0.5,95.0</pre>
                 </details>
 
                 <form method="post" enctype="multipart/form-data"

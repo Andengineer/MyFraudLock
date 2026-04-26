@@ -112,7 +112,20 @@ FEATURE_DISPLAY_NAMES = {
     "issuer_bank": "Banco Emisor",
     "payment_channel": "Canal de Pago",
     "customer_region": "Región",
-    "category": "Categoría de Producto"
+    "category": "Categoría de Producto",
+    "amt_hour_interaction": "Anomalía Monto/Hora",
+    "amt_fail_interaction": "Anomalía Monto/Intentos Fallidos",
+    "risk_score_smooth": "Puntaje de Riesgo Compuesto",
+    "amt_pop_sigmoid": "Monto vs Población",
+    "customer_maturity": "Madurez del Cliente",
+    "night_newcust_score": "Riesgo Nocturno Nuevo Cliente",
+    "session_duration_minutes": "Duración de Sesión (min)",
+    "interaction_velocity": "Velocidad de Interacción (Biometría)",
+    "device_telemetry_1": "Telemetría Dispositivo 1",
+    "device_telemetry_2": "Telemetría Dispositivo 2",
+    "device_telemetry_3": "Telemetría Dispositivo 3",
+    "device_telemetry_4": "Telemetría Dispositivo 4",
+    "device_telemetry_5": "Telemetría Dispositivo 5"
 }
 
 
@@ -201,6 +214,12 @@ def predict_and_explain(payload: dict, top_k: int = 6, aggregate: bool = True):
                 explicacion_negocio.append("La cantidad múltiple de artículos sugiere comportamiento tipo 'acaparamiento' fraudulento.")
             elif k == "customer_region":
                 explicacion_negocio.append("La ubicación o región del incidente cruza con zonas de concurrencia de fraude o desconectadas de sus patrones habituales.")
+            elif k == "interaction_velocity":
+                explicacion_negocio.append("La biometría conductual detectó una velocidad de interacción anómala (potencial uso de bots o scripts automatizados).")
+            elif k == "night_newcust_score":
+                explicacion_negocio.append("Se detectó un patrón de alto riesgo: cliente sin historial operando en horarios de madrugada.")
+            elif k.startswith("device_telemetry_"):
+                explicacion_negocio.append("Se detectaron anomalías en la telemetría multidimensional del dispositivo (firma del equipo no concuerda con usuario legítimo).")
 
     # Deduplicar
     explicacion_negocio = list(dict.fromkeys(explicacion_negocio))

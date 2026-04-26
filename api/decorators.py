@@ -22,7 +22,7 @@ def require_roles(*allowed_roles):
     """
     Restringe acceso por rol.  ADMIN siempre pasa.
     Uso: @usuario_login_required
-         @require_roles('ANALISTA', 'EJECUTIVO')
+         @require_roles('ANALISTA', 'GERENTE')
     """
     def deco(view_func):
         @wraps(view_func)

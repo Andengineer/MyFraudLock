@@ -116,6 +116,30 @@
     </div>
 </div>
 
+<!-- ROW 4: Nuevas variables -->
+<div class="row g-3 mt-3 animate-in delay-4">
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm" style="border-radius: var(--radius-lg);">
+            <div class="card-header bg-white border-0 pt-4 pb-2">
+                <h6 class="fw-bold mb-0"><i class="bi bi-person-badge me-2 text-primary"></i>Fraude: Clientes Nuevos vs Recurrentes</h6>
+            </div>
+            <div class="card-body d-flex justify-content-center align-items-center">
+                <canvas id="chartNewCust" style="max-height:220px"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm" style="border-radius: var(--radius-lg);">
+            <div class="card-header bg-white border-0 pt-4 pb-2">
+                <h6 class="fw-bold mb-0"><i class="bi bi-shield-check me-2 text-success"></i>Fraude vs Uso de 3D Secure</h6>
+            </div>
+            <div class="card-body d-flex justify-content-center align-items-center">
+                <canvas id="chart3ds" style="max-height:220px"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Recent incidents -->
 <div class="mt-4 animate-in delay-4">
     <h2 class="h5 mb-3 fw-bold">Últimos incidentes</h2>
@@ -214,6 +238,10 @@
     const seriePend  = JSON.parse('{{ serie_pendiente|escapejs }}');
     const serieFraud = JSON.parse('{{ serie_fraude|escapejs }}');
     const serieFP    = JSON.parse('{{ serie_fp|escapejs }}');
+    const labelsNewCust = JSON.parse('{{ labels_newcust|escapejs|default:"[]" }}');
+    const dataNewCust = JSON.parse('{{ data_newcust|escapejs|default:"[]" }}');
+    const labels3ds = JSON.parse('{{ labels_3ds|escapejs|default:"[]" }}');
+    const data3ds = JSON.parse('{{ data_3ds|escapejs|default:"[]" }}');
 
     const mkBar = (id, labels, data, color, fmtFunc) => new Chart(document.getElementById(id), {
         type: 'bar',
@@ -279,6 +307,40 @@
         options: {
             plugins: {legend: {position:'bottom', labels: {usePointStyle: true, padding: 12}}},
             cutout: '65%'
+        }
+    });
+
+    // New Customer doughnut
+    new Chart(document.getElementById('chartNewCust'), {
+        type: 'doughnut',
+        data: {
+            labels: labelsNewCust,
+            datasets: [{
+                data: dataNewCust,
+                backgroundColor: ['#474aef', '#10b981'],
+                borderWidth: 0, spacing: 2
+            }]
+        },
+        options: {
+            plugins: {legend: {position:'bottom', labels: {usePointStyle: true, padding: 12}}},
+            cutout: '70%'
+        }
+    });
+
+    // 3DS doughnut
+    new Chart(document.getElementById('chart3ds'), {
+        type: 'doughnut',
+        data: {
+            labels: labels3ds,
+            datasets: [{
+                data: data3ds,
+                backgroundColor: ['#10b981', '#ef4444'],
+                borderWidth: 0, spacing: 2
+            }]
+        },
+        options: {
+            plugins: {legend: {position:'bottom', labels: {usePointStyle: true, padding: 12}}},
+            cutout: '70%'
         }
     });
 </script>

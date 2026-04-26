@@ -75,6 +75,38 @@ def predict_fraud(tx):
     amount_deviation = round((amt - avg_hist_amt) / (avg_hist_amt + 1e-6), 4)
     amount_deviation = max(-10.0, min(50.0, amount_deviation))
 
+    # ─── Nuevas features derivadas ───
+    amt_hour_interaction = round(amt_log1p * hour_sin, 4)
+    amt_fail_interaction = round(math.tanh(amt / 500) * math.log1p(prev_failed), 4)
+    risk_score_smooth = round(math.tanh(
+        amount_deviation * 0.3 +
+        prev_failed * 0.5 +
+        is_new_customer * 0.4 +
+        (1 - has_3ds) * 0.3 +
+        is_high_risk_hour * 0.2
+    ), 4)
+    amt_pop_ratio = amt / (city_population + 1)
+    amt_pop_sigmoid = round(1 / (1 + math.exp(-10 * (amt_pop_ratio - 0.001))), 4)
+    customer_maturity = round(math.tanh(days_since_first / 365), 4)
+    night_newcust_score = round(
+        (1 - customer_maturity) * (1 - math.cos(2 * math.pi * hour / 24)) / 2, 4
+    )
+
+    # ─── Biometría Conductual y Telemetría ───
+    # Si no vienen en el request (ej. simulación manual antigua), simulamos valores legítimos promedio
+    t = np.random.uniform(-0.5, 0.5)
+    base_duration = t + np.random.normal(0, 0.25)
+    base_velocity = t + np.random.normal(0, 0.25)
+
+    session_duration = float(get("session_duration_minutes") or round(max(0.5, min(60.0, base_duration * 15 + 15)), 2))
+    interaction_vel = float(get("interaction_velocity") or round(max(0.5, min(100.0, base_velocity * 25 + 25)), 2))
+
+    device_tel_1 = float(get("device_telemetry_1") or round(np.random.normal(-1.0, 1.0), 4))
+    device_tel_2 = float(get("device_telemetry_2") or round(np.random.normal(0, 2.0), 4))
+    device_tel_3 = float(get("device_telemetry_3") or round(np.random.normal(0, 2.0), 4))
+    device_tel_4 = float(get("device_telemetry_4") or round(np.random.normal(0, 2.0), 4))
+    device_tel_5 = float(get("device_telemetry_5") or round(np.random.normal(0, 2.0), 4))
+
     payload = {
         "transaction_amount": amt,
         "amt_log1p":          amt_log1p,
@@ -106,6 +138,19 @@ def predict_fraud(tx):
         "payment_channel":    payment_channel,
         "customer_region":    customer_region,
         "category":           category,
+        "amt_hour_interaction": amt_hour_interaction,
+        "amt_fail_interaction": amt_fail_interaction,
+        "risk_score_smooth":  risk_score_smooth,
+        "amt_pop_sigmoid":    amt_pop_sigmoid,
+        "customer_maturity":  customer_maturity,
+        "night_newcust_score": night_newcust_score,
+        "session_duration_minutes": session_duration,
+        "interaction_velocity": interaction_vel,
+        "device_telemetry_1": device_tel_1,
+        "device_telemetry_2": device_tel_2,
+        "device_telemetry_3": device_tel_3,
+        "device_telemetry_4": device_tel_4,
+        "device_telemetry_5": device_tel_5,
     }
 
     score, exp = predict_and_explain(payload)

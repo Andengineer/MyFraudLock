@@ -8,7 +8,7 @@ class Usuario(models.Model):
     class Roles(models.TextChoices):
         ADMIN = 'ADMIN', 'Administrador'
         ANALISTA = 'ANALISTA', 'Analista de Fraude'
-        EJECUTIVO = 'EJECUTIVO', 'Ejecutivo (solo lectura)'
+        GERENTE = 'GERENTE', 'Gerente (solo lectura)'
 
     id_usuario = models.AutoField(primary_key=True)
     username = models.CharField(max_length=100, unique=True)
@@ -107,6 +107,21 @@ class Transaccion(models.Model):
         default=0,
         help_text='Intentos de pago fallidos previos a este'
     )
+
+    # ── Biometría Conductual y Telemetría ────────────────────────────
+    session_duration_minutes = models.DecimalField(
+        max_digits=6, decimal_places=2, null=True, blank=True,
+        help_text='Duración de la sesión en el portal (minutos)'
+    )
+    interaction_velocity = models.DecimalField(
+        max_digits=6, decimal_places=2, null=True, blank=True,
+        help_text='Velocidad de interacción'
+    )
+    device_telemetry_1 = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
+    device_telemetry_2 = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
+    device_telemetry_3 = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
+    device_telemetry_4 = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
+    device_telemetry_5 = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
 
     def __str__(self):
         return f"Tx #{self.id_transaccion}"

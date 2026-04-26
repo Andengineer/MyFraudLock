@@ -518,7 +518,7 @@
             <i class="bi bi-house-door"></i> Inicio
         </a>
         {% if current_usuario %}
-            {% if current_usuario.rol == 'EJECUTIVO' or current_usuario.rol == 'ADMIN' %}
+            {% if current_usuario.rol == 'GERENTE' or current_usuario.rol == 'ADMIN' %}
                 <a class="sidebar-link" href="{% url 'dashboard' %}" data-nav>
                     <i class="bi bi-speedometer2"></i> Dashboard
                 </a>
@@ -542,7 +542,7 @@
                 <i class="bi bi-people"></i> Usuarios
             </a>
         {% endif %}
-        {% if current_usuario.rol == 'EJECUTIVO' or current_usuario.rol == 'ADMIN' %}
+        {% if current_usuario.rol == 'GERENTE' or current_usuario.rol == 'ADMIN' %}
             <a class="sidebar-link" href="{% url 'configuracion_front' %}" data-nav>
                 <i class="bi bi-sliders"></i> Configuración
             </a>

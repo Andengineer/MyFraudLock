@@ -43,14 +43,14 @@ from .serializers import (
 ROLE_LABELS = {
     "ADMIN": "Administrador",
     "ANALISTA": "Analista de Incidentes",
-    "EJECUTIVO": "Ejecutivo (solo lectura)",
+    "GERENTE": "Gerente (solo lectura)",
 }
 
 
 def _allowed_roles_for_request(request):
     """Devuelve los roles que el usuario actual puede asignar."""
     is_admin = request.session.get('usuario_rol') == 'ADMIN'
-    roles = ["ADMIN", "ANALISTA", "EJECUTIVO"] if is_admin else ["ANALISTA", "EJECUTIVO"]
+    roles = ["ADMIN", "ANALISTA", "GERENTE"] if is_admin else ["ANALISTA", "GERENTE"]
     return [{"value": r, "label": ROLE_LABELS.get(r, r)} for r in roles]
 
 
@@ -177,7 +177,7 @@ class ConfiguracionViewSet(viewsets.ModelViewSet):
 # ---------------------------------------------------------------------------
 
 @usuario_login_required
-@require_roles('EJECUTIVO')
+@require_roles('GERENTE')
 def dashboard_view(request):
     """Dashboard ejecutivo con KPIs e Impactos Financieros."""
     # 1. KPIs Generales
@@ -228,6 +228,35 @@ def dashboard_view(request):
     data_cat = [r["n"] for r in qs_cat]
     data_cat_money = [float(r["total_monto"] or 0) for r in qs_cat]
     
+    # Fraude por Antigüedad (Nuevo vs Recurrente)
+    qs_new = (
+        Incidente.objects.filter(estado="Fraude confirmado")
+        .values("id_transaccion__is_new_customer")
+        .annotate(n=Count("id_incidente"))
+    )
+    labels_newcust = []
+    data_newcust = []
+    for r in qs_new:
+        labels_newcust.append("Nuevo" if r["id_transaccion__is_new_customer"] else "Recurrente")
+        data_newcust.append(r["n"])
+
+    # Fraude por Uso de 3DS
+    qs_3ds = (
+        Incidente.objects.filter(estado="Fraude confirmado")
+        .values("id_transaccion__eci_code")
+        .annotate(n=Count("id_incidente"))
+    )
+    labels_3ds = []
+    data_3ds = []
+    for r in qs_3ds:
+        is_3ds = r["id_transaccion__eci_code"] in [2, 5]
+        label = "Con 3D Secure" if is_3ds else "Sin 3D Secure"
+        if label in labels_3ds:
+            data_3ds[labels_3ds.index(label)] += r["n"]
+        else:
+            labels_3ds.append(label)
+            data_3ds.append(r["n"])
+            
     # Distribución de score (buckets) 
     buckets = [(0, 20), (20, 40), (40, 60), (60, 80), (80, 100)]
     bucket_labels = ["0–20", "20–40", "40–60", "60–80", "80–100"]
@@ -279,6 +308,10 @@ def dashboard_view(request):
         "serie_pendiente": json.dumps(series["Pendiente"]),
         "serie_fraude": json.dumps(series["Fraude confirmado"]),
         "serie_fp": json.dumps(series["Falso positivo"]),
+        "labels_newcust": json.dumps(labels_newcust),
+        "data_newcust": json.dumps(data_newcust),
+        "labels_3ds": json.dumps(labels_3ds),
+        "data_3ds": json.dumps(data_3ds),
     }
     return render(request, "api/dashboard.html", ctx)
 
@@ -332,7 +365,7 @@ def incidente_detalle_view(request, incidente_id):
 
 @usuario_login_required
 @csrf_exempt
-@require_roles('ANALISTA', 'EJECUTIVO')
+@require_roles('ANALISTA', 'GERENTE')
 def simulacion_view(request):
     """Simulación de riesgo individual — formulario + resultado."""
     contexto = {"active_tab": "individual"}
@@ -362,6 +395,8 @@ def simulacion_view(request):
             "num_items": int(request.POST.get("num_items") or 1),
             "has_discount": bool(request.POST.get("has_discount")),
             "previous_failed_attempts": int(request.POST.get("previous_failed_attempts") or 0),
+            "session_duration_minutes": float(request.POST.get("session_duration_minutes")) if request.POST.get("session_duration_minutes") else None,
+            "interaction_velocity": float(request.POST.get("interaction_velocity")) if request.POST.get("interaction_velocity") else None,
         }
 
         score, explicabilidad = predict_fraud(payload)
@@ -375,7 +410,7 @@ def simulacion_view(request):
 
 
 @usuario_login_required
-@require_roles('ANALISTA', 'EJECUTIVO')
+@require_roles('ANALISTA', 'GERENTE')
 def simulacion_lote_view(request):
     """Simulación de riesgo por lote — carga CSV y procesa cada fila."""
     contexto = {"active_tab": "lote"}
@@ -425,6 +460,8 @@ def simulacion_lote_view(request):
                     "num_items": int(row.get("num_items") or 1),
                     "has_discount": bool(int(row.get("has_discount") or 0)),
                     "previous_failed_attempts": int(row.get("previous_failed_attempts") or 0),
+                    "session_duration_minutes": float(row.get("session_duration_minutes")) if row.get("session_duration_minutes") else None,
+                    "interaction_velocity": float(row.get("interaction_velocity")) if row.get("interaction_velocity") else None,
                 }
 
                 score, explicabilidad = predict_fraud(payload)
@@ -451,7 +488,7 @@ def simulacion_lote_view(request):
 # ---------------------------------------------------------------------------
 
 @usuario_login_required
-@require_roles('EJECUTIVO')
+@require_roles('GERENTE')
 def configuracion_front(request):
     """Configuración del umbral de riesgo."""
     config, _ = Configuracion.objects.get_or_create(id=1)
@@ -676,7 +713,7 @@ def usuario_create_view(request):
     roles = [
         {"value": "ADMIN", "label": "Administrador"},
         {"value": "ANALISTA", "label": "Analista de Incidentes"},
-        {"value": "EJECUTIVO", "label": "Ejecutivo (solo lectura)"},
+        {"value": "GERENTE", "label": "Gerente (solo lectura)"},
     ]
 
     if request.method == "POST":
@@ -718,7 +755,7 @@ def usuario_edit_view(request, usuario_id):
     roles = [
         {"value": "ADMIN", "label": "Administrador"},
         {"value": "ANALISTA", "label": "Analista de Incidentes"},
-        {"value": "EJECUTIVO", "label": "Ejecutivo (solo lectura)"},
+        {"value": "GERENTE", "label": "Gerente (solo lectura)"},
     ]
 
     if request.method == "POST":
@@ -789,7 +826,7 @@ def usuario_reset_password_view(request, usuario_id):
 # ---------------------------------------------------------------------------
 
 @usuario_login_required
-@require_roles('EJECUTIVO')
+@require_roles('GERENTE')
 def dashboard_pdf_view(request):
     """Exporta el dashboard como PDF."""
     pendientes = Incidente.objects.filter(estado="Pendiente").count()

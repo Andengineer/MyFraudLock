@@ -55,7 +55,7 @@
                     <option value="">Todos los roles</option>
                     <option value="ADMIN">Admin</option>
                     <option value="ANALISTA">Analista</option>
-                    <option value="EJECUTIVO">Ejecutivo</option>
+                    <option value="GERENTE">Gerente</option>
                 </select>
             </div>
             <div class="col-sm-4 col-lg-2">
@@ -109,7 +109,7 @@
                             {% elif u.rol == 'ANALISTA' %}
                                 <span class="badge bg-info text-dark">Analista</span>
                             {% else %}
-                                <span class="badge bg-secondary">Ejecutivo</span>
+                                <span class="badge bg-secondary">Gerente</span>
                             {% endif %}
                         </td>
                         <td>
@@ -232,7 +232,7 @@
         const uid = btn.dataset.uid;
         const uname = btn.dataset.uname;
         document.getElementById('resetUsername').textContent = uname;
-        document.getElementById('resetForm').action = `/api/usuarios/${uid}/reset-password/`;
+        document.getElementById('resetForm').action = `/api/usuarios-panel/${uid}/reset-password/`;
     });
 </script>
 {% endblock %}

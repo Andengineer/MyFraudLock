@@ -3,7 +3,10 @@
     "transaction_amount"
   ],
   "amt": [
-    "amt_log1p"
+    "amt_log1p",
+    "amt_hour_interaction",
+    "amt_fail_interaction",
+    "amt_pop_sigmoid"
   ],
   "hour": [
     "hour",
@@ -51,6 +54,44 @@
   "amount": [
     "amount_deviation"
   ],
+  "risk": [
+    "risk_score_smooth"
+  ],
+  "customer": [
+    "customer_maturity",
+    "customer_region_ancash",
+    "customer_region_arequipa",
+    "customer_region_cajamarca",
+    "customer_region_callao",
+    "customer_region_cusco",
+    "customer_region_huanuco",
+    "customer_region_ica",
+    "customer_region_junin",
+    "customer_region_la_libertad",
+    "customer_region_lambayeque",
+    "customer_region_lima",
+    "customer_region_loreto",
+    "customer_region_piura",
+    "customer_region_san_martin",
+    "customer_region_tacna",
+    "customer_region_ucayali"
+  ],
+  "night": [
+    "night_newcust_score"
+  ],
+  "session": [
+    "session_duration_minutes"
+  ],
+  "interaction": [
+    "interaction_velocity"
+  ],
+  "device": [
+    "device_telemetry_1",
+    "device_telemetry_2",
+    "device_telemetry_3",
+    "device_telemetry_4",
+    "device_telemetry_5"
+  ],
   "card": [
     "card_brand_amex",
     "card_brand_diners",
@@ -78,24 +119,6 @@
     "payment_channel_app",
     "payment_channel_mobile",
     "payment_channel_web"
-  ],
-  "customer": [
-    "customer_region_ancash",
-    "customer_region_arequipa",
-    "customer_region_cajamarca",
-    "customer_region_callao",
-    "customer_region_cusco",
-    "customer_region_huanuco",
-    "customer_region_ica",
-    "customer_region_junin",
-    "customer_region_la_libertad",
-    "customer_region_lambayeque",
-    "customer_region_lima",
-    "customer_region_loreto",
-    "customer_region_piura",
-    "customer_region_san_martin",
-    "customer_region_tacna",
-    "customer_region_ucayali"
   ],
   "category": [
     "category_accesorios",

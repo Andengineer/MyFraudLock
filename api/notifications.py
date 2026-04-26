@@ -67,13 +67,13 @@ def notify_new_incident(incidente):
 
 def notify_fraud_confirmed(incidente):
     """
-    Envía email a todos los EJECUTIVOS activos cuando se confirma fraude.
+    Envía email a todos los GERENTES activos cuando se confirma fraude.
     """
     if not _is_enabled():
         return
 
     ejecutivos = Usuario.objects.filter(
-        rol__in=["EJECUTIVO", "ADMIN"], activo=True
+        rol__in=["GERENTE", "ADMIN"], activo=True
     ).exclude(email="")
 
     if not ejecutivos.exists():

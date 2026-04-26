@@ -23,6 +23,10 @@ class TransaccionSerializer(serializers.ModelSerializer):
             "avg_historical_amount",
             "category", "num_items", "has_discount",
             "previous_failed_attempts",
+            "session_duration_minutes", "interaction_velocity",
+            "device_telemetry_1", "device_telemetry_2",
+            "device_telemetry_3", "device_telemetry_4",
+            "device_telemetry_5"
         ]
 
 
