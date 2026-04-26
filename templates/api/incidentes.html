@@ -266,10 +266,7 @@
 <script>
 (function(){
     const TB = document.getElementById('incidentes-tbody');
-    function topId(){
-        const tr = TB.querySelector('tr[data-id]');
-        return tr ? Number(tr.dataset.id) : 0;
-    }
+    let maxKnownId = Math.max(0, ...allRows.map(tr => Number(tr.dataset.id)));
     function badgeFor(s){
         if (s >= 80) return 'badge-risk-high';
         if (s >= 50) return 'badge-risk-med';
@@ -295,12 +292,21 @@
     }
     async function poll(){
         try{
-            const res = await fetch(`/api/incidentes/since/?after_id=${topId()}`);
+            const res = await fetch(`/api/incidentes/since/?after_id=${maxKnownId}`);
             if (!res.ok) return;
             const data = await res.json();
             const items = (data && data.items) || [];
             if (items.length){
-                items.reverse().forEach(i => TB.insertAdjacentHTML('afterbegin', rowHtml(i)));
+                items.forEach(i => {
+                    // Update maxKnownId
+                    if (i.id_incidente > maxKnownId) maxKnownId = i.id_incidente;
+                    
+                    // Add to DOM temporarily to create DOM element, then add to allRows
+                    TB.insertAdjacentHTML('afterbegin', rowHtml(i));
+                    const newTr = TB.firstElementChild;
+                    allRows.unshift(newTr); // add to top of allRows
+                });
+                render(); // apply current sorting and pagination
                 setTimeout(() => document.querySelectorAll('.row-new').forEach(el => el.classList.remove('row-new')), 2000);
             }
         } catch(_) {}
