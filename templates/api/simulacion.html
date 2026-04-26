@@ -307,8 +307,16 @@
                                 </td>
                                 <td>
                                     <details>
-                                        <summary class="text-muted small">Ver</summary>
-                                        <pre class="mb-0 mt-1" style="font-size:.72rem;">{{ r.explicabilidad|safe }}</pre>
+                                        <summary class="text-muted small" style="cursor:pointer;">Ver</summary>
+                                        <ul class="mb-0 mt-1 ps-3" style="font-size:.75rem;">
+                                        {% if r.explicabilidad and r.explicabilidad.explicacion_negocio %}
+                                            {% for msg in r.explicabilidad.explicacion_negocio %}
+                                                <li class="text-danger fw-medium">{{ msg }}</li>
+                                            {% endfor %}
+                                        {% else %}
+                                            <li class="text-muted">Sin advertencias.</li>
+                                        {% endif %}
+                                        </ul>
                                     </details>
                                 </td>
                             </tr>
