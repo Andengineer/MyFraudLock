@@ -43,9 +43,3 @@ arquitectura_fisica.mmd
 protocolo_validacion.md
 requisitos_funcionales.md
 zArtefactosTesis/
-Entrenamiento/
-01_generate_data.py
-02_eda_analysis.py
-03_balance_experiment.py
-04_train_optimized.py
-Entrenamiento/
