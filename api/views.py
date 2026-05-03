@@ -442,26 +442,32 @@ def simulacion_lote_view(request):
                 except ValueError:
                     continue
 
+                # Utility para leer booleanos desde CSV (puede venir "True", "False", "1", "0", etc.)
+                def parse_bool(val):
+                    if not val:
+                        return False
+                    return str(val).strip().lower() in ('1', 'true', 'yes', 't', 'y', 'verdadero')
+
                 payload = {
                     "importe": importe,
                     "fecha": None,
-                    "card_brand": (row.get("card_brand") or "visa").strip().lower(),
-                    "card_type": (row.get("card_type") or "debit").strip().lower(),
-                    "issuer_bank": (row.get("issuer_bank") or "bcp").strip().lower(),
-                    "payment_channel": (row.get("payment_channel") or "web").strip().lower(),
-                    "eci_code": int(row.get("eci_code") or 5),
-                    "num_installments": int(row.get("num_installments") or 0),
-                    "customer_region": (row.get("customer_region") or "lima").strip().lower(),
-                    "city_population": int(row.get("city_population") or 0),
-                    "is_new_customer": bool(int(row.get("is_new_customer") or 0)),
-                    "days_since_first_purchase": int(row.get("days_since_first_purchase") or 0),
-                    "avg_historical_amount": float(row.get("avg_historical_amount") or 0),
+                    "card_brand": (row.get("card_brand") or row.get("cardbrand") or "visa").strip().lower(),
+                    "card_type": (row.get("card_type") or row.get("cardtype") or "debit").strip().lower(),
+                    "issuer_bank": (row.get("issuer_bank") or row.get("issuerbank") or "bcp").strip().lower(),
+                    "payment_channel": (row.get("payment_channel") or row.get("paymentchannel") or "web").strip().lower(),
+                    "eci_code": int(row.get("eci_code") or row.get("ecicode") or 5),
+                    "num_installments": int(row.get("num_installments") or row.get("numinstallments") or 0),
+                    "customer_region": (row.get("customer_region") or row.get("customerregion") or "lima").strip().lower(),
+                    "city_population": int(row.get("city_population") or row.get("citypopulation") or 0),
+                    "is_new_customer": parse_bool(row.get("is_new_customer") or row.get("isnewcustomer")),
+                    "days_since_first_purchase": int(row.get("days_since_first_purchase") or row.get("dayssincefirstpurchase") or 0),
+                    "avg_historical_amount": float(row.get("avg_historical_amount") or row.get("avghistoricalamount") or 0),
                     "category": (row.get("category") or "otros").strip().lower(),
-                    "num_items": int(row.get("num_items") or 1),
-                    "has_discount": bool(int(row.get("has_discount") or 0)),
-                    "previous_failed_attempts": int(row.get("previous_failed_attempts") or 0),
-                    "session_duration_minutes": float(row.get("session_duration_minutes")) if row.get("session_duration_minutes") else None,
-                    "interaction_velocity": float(row.get("interaction_velocity")) if row.get("interaction_velocity") else None,
+                    "num_items": int(row.get("num_items") or row.get("numitems") or 1),
+                    "has_discount": parse_bool(row.get("has_discount") or row.get("hasdiscount")),
+                    "previous_failed_attempts": int(row.get("previous_failed_attempts") or row.get("previousfailedattempts") or 0),
+                    "session_duration_minutes": float(row.get("session_duration_minutes") or row.get("sessiondurationminutes")) if row.get("session_duration_minutes") or row.get("sessiondurationminutes") else None,
+                    "interaction_velocity": float(row.get("interaction_velocity") or row.get("interactionvelocity")) if row.get("interaction_velocity") or row.get("interactionvelocity") else None,
                 }
 
                 score, explicabilidad = predict_fraud(payload)
