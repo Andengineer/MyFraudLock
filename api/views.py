@@ -739,13 +739,19 @@ def usuario_create_view(request):
         elif Usuario.objects.filter(username=username).exists():
             messages.error(request, "Nombre de usuario ya en uso.")
         elif Usuario.objects.filter(email=email).exists():
-            messages.error(request, "Email ya registrado.")
+            messages.error(request, "Email ya registrado. El sistema no permite continuar.")
         else:
             u = Usuario(username=username, email=email, telefono=telefono or None, rol=rol)
             u.set_password(password)
             u.save()
             messages.success(request, f"Usuario '{username}' creado correctamente.")
             return redirect("usuarios_list")
+
+        return render(request, "api/usuario_form.html", {
+            "editing": False,
+            "roles": roles,
+            "usuario": {"username": username, "email": email, "telefono": telefono, "rol": rol}
+        })
 
     return render(request, "api/usuario_form.html", {
         "editing": False,

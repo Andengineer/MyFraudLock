@@ -4,6 +4,7 @@ djangorestframework
 django-filter
 whitenoise
 gunicorn
+django-axes
 
 # ML
 numpy

@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'api.apps.ApiConfig',
     'rest_framework',
+    'axes',
 ]
 
 MIDDLEWARE = [
@@ -66,6 +67,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'axes.middleware.AxesMiddleware',
 ]
 
 ROOT_URLCONF = 'MyFraudLock.urls'
@@ -109,6 +111,21 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
+
+AUTHENTICATION_BACKENDS = [
+    'axes.backends.AxesBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+
+# ---------------------------------------------------------------------------
+# Axes (Brute Force Protection)
+# ---------------------------------------------------------------------------
+
+AXES_FAILURE_LIMIT = 5
+AXES_COOLOFF_TIME = 15 / 60  # 15 minutos de bloqueo
+AXES_RESET_ON_SUCCESS = True
+AXES_LOCKOUT_TEMPLATE = None  # Usa el default o podemos customizarlo si fuera necesario
+AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
 
 # ---------------------------------------------------------------------------
 # Internationalization
