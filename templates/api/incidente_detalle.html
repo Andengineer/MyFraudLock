@@ -125,6 +125,9 @@
                         <strong>Tarjeta:</strong> <span>{{ incidente.id_transaccion.card_brand|upper }} / {{ incidente.id_transaccion.card_type }}</span>
                     </li>
                     <li class="list-group-item d-flex justify-content-between">
+                        <strong>BIN:</strong> <span>{{ incidente.id_transaccion.bin|default:"—" }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
                         <strong>Banco Emisor:</strong> <span>{{ incidente.id_transaccion.issuer_bank|upper }}</span>
                     </li>
                     <li class="list-group-item d-flex justify-content-between">
@@ -137,13 +140,19 @@
                         <strong>Región:</strong> <span>{{ incidente.id_transaccion.customer_region }}</span>
                     </li>
                     <li class="list-group-item d-flex justify-content-between">
-                        <strong>Categoría:</strong> <span>{{ incidente.id_transaccion.category }}</span>
+                        <strong>Email Dominio:</strong> <span>{{ incidente.id_transaccion.email_domain|default:"—" }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <strong>Categoría:</strong> <span>{{ incidente.id_transaccion.product_category|default:incidente.id_transaccion.category }}</span>
                     </li>
                     <li class="list-group-item d-flex justify-content-between">
                         <strong>Nro. Ítems:</strong> <span>{{ incidente.id_transaccion.num_items }}</span>
                     </li>
                     <li class="list-group-item d-flex justify-content-between">
-                        <strong>Intentos fallidos:</strong> <span>{{ incidente.id_transaccion.previous_failed_attempts }}</span>
+                        <strong>Descuento:</strong> <span>S/ {{ incidente.id_transaccion.discount_amount|default:"0.00" }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <strong>Wallets:</strong> <span>Yape: {{ incidente.id_transaccion.wallet_yape|default:"no" }} | Plin: {{ incidente.id_transaccion.wallet_plin|default:"no" }}</span>
                     </li>
                 </ul>
             </div>
@@ -170,7 +179,8 @@
                     <summary class="text-muted small fw-semibold" style="cursor:pointer;"><i
                             class="bi bi-table me-1"></i> Ver detalle de variables</summary>
                     <div id="tabularData" class="mt-2 text-start"></div>
-                    <pre id="expBox" style="display:none;">{{ incidente.explicabilidad|safe }}</pre>
+                    {{ incidente.explicabilidad|json_script:"expBoxData" }}
+                    <pre id="expBox" style="display:none;"></pre>
                 </details>
             </div>
         </div>
@@ -265,12 +275,11 @@
 
     // SHAP waterfall chart (simple horizontal bar)
     (function renderShap() {
-        const el = document.getElementById('expBox');
+        const dataEl = document.getElementById('expBoxData');
         const chartDiv = document.getElementById('shapChart');
-        if (!el || !chartDiv) return;
+        if (!dataEl || !chartDiv) return;
         try {
-            const raw = el.textContent.trim();
-            const obj = JSON.parse(raw);
+            const obj = JSON.parse(dataEl.textContent);
 
             // Set Progress Bar Safely
             const scoreStr = "{{ incidente.score_riesgo|safe }}".replace(',', '.');

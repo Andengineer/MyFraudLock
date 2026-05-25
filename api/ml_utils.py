@@ -1,157 +1,238 @@
 # api/ml_utils.py
 """
-Utilidades ML para detección de fraude.
-Conecta el modelo Transacción de Django con el modelo DL entrenado.
+Utilidades ML para detección de fraude — DAFD-Net.
+Calcula ratios financieros en tiempo real y ejecuta predicción.
 """
-import json, math, datetime as dt
-import numpy as np
-from .ml.xai import predict_and_explain
-from django.utils import timezone
+import json
+from math import log2
+from decimal import Decimal
 
+from django.utils import timezone
+from django.db.models import Avg, Count, Q
+
+from .ml.xai import predict_and_explain
+
+
+# ─── Helpers ─────────────────────────────────────────────────────────
 
 def _derive_time_parts(fecha):
     """Deriva features temporales usando tz local."""
     if not fecha:
         fecha = timezone.now()
     local = timezone.localtime(fecha)
-    hour = local.hour
-    weekday = local.weekday()          # 0=Lun..6=Dom
-    month = local.month
-    is_weekend = 1 if weekday >= 5 else 0
-    return hour, weekday, month, is_weekend
+    return local.hour, local.weekday(), local.month
 
+
+def _shannon_entropy(values):
+    """Shannon entropy en bits para una lista de valores categóricos."""
+    if not values:
+        return 0.0
+    total = len(values)
+    counts = {}
+    for v in values:
+        counts[v] = counts.get(v, 0) + 1
+    return float(-sum((c / total) * log2(c / total) for c in counts.values() if c > 0))
+
+
+def _compute_ratios(tx_amount, bin_val, product_category, eci, last_4_digits="0000"):
+    """
+    Calcula los 7 ratios financieros en tiempo real usando el historial
+    de transacciones en la base de datos.
+
+    Replica la lógica de Entrenamiento/02b_preprocess_and_label.py §3.C.2
+    """
+    from .models import Transaccion  # import local para evitar circular
+
+    now = timezone.now()
+    last_24h = now - timezone.timedelta(hours=24)
+
+    card_full_id = f"{bin_val}{last_4_digits}"
+
+    # ── AAR: Amount-to-Average Ratio ─────────────────────────────────
+    # tx_amount / promedio histórico del mismo BIN
+    avg_result = Transaccion.objects.filter(bin=bin_val).aggregate(
+        avg_amt=Avg("importe")
+    )
+    avg_amt = float(avg_result["avg_amt"] or tx_amount)  # si no hay historial, AAR=1
+    AAR = round(tx_amount / max(avg_amt, 0.001), 4)
+    AAR = min(AAR, 50.0)
+
+    # ── CMR: Category Median Ratio ───────────────────────────────────
+    # tx_amount / mediana de la categoría
+    cat_amounts = list(
+        Transaccion.objects.filter(product_category=product_category)
+        .values_list("importe", flat=True)
+    )
+    if cat_amounts:
+        cat_amounts_sorted = sorted(float(a) for a in cat_amounts)
+        n = len(cat_amounts_sorted)
+        median_amt = (cat_amounts_sorted[n // 2] if n % 2 == 1
+                      else (cat_amounts_sorted[n // 2 - 1] + cat_amounts_sorted[n // 2]) / 2)
+    else:
+        median_amt = tx_amount
+    CMR = round(tx_amount / max(median_amt, 0.001), 4)
+    CMR = min(CMR, 50.0)
+
+    # ── ASI: Authentication Strength Index ───────────────────────────
+    # Fracción de transacciones del BIN que usaron 3DS fuerte (ECI 2 o 5)
+    bin_txs = Transaccion.objects.filter(bin=bin_val)
+    total_bin = bin_txs.count()
+    if total_bin > 0:
+        strong_auth_count = bin_txs.filter(eci_code__in=[2, 5]).count()
+        # Incluir la transacción actual
+        is_current_strong = 1 if eci in [2, 5] else 0
+        ASI = round((strong_auth_count + is_current_strong) / (total_bin + 1), 4)
+    else:
+        ASI = 1.0 if eci in [2, 5] else 0.0
+
+    # ── VRR: Velocity Risk Ratio ─────────────────────────────────────
+    # Transacciones del BIN en últimas 24h / promedio diario del BIN
+    count_24h = Transaccion.objects.filter(
+        bin=bin_val, fecha__gte=last_24h
+    ).count() + 1  # +1 para la actual
+
+    # Promedio diario: total de tx / días observados
+    first_tx = Transaccion.objects.filter(bin=bin_val).order_by("fecha").first()
+    if first_tx and total_bin > 0:
+        days_observed = max(1, (now - first_tx.fecha).days + 1)
+        avg_daily = total_bin / days_observed
+        VRR = round(count_24h / max(avg_daily, 0.001), 4)
+    else:
+        VRR = 1.0  # primera transacción del BIN
+    VRR = min(VRR, 50.0)
+
+    # ── DAR: Denial-to-Attempt Ratio ─────────────────────────────────
+    # Denegaciones en últimas 24h / total intentos en 24h para esta tarjeta
+    attempts_24h = Transaccion.objects.filter(
+        bin=bin_val, fecha__gte=last_24h
+    )
+    total_attempts = attempts_24h.count() + 1  # +1 actual
+    denials_24h = attempts_24h.filter(
+        transaction_status="denegada"
+    ).count()
+    DAR = round(denials_24h / max(total_attempts, 1), 4)
+    DAR = min(DAR, 1.0)
+
+    # ── CSI: Card Sharing Index ──────────────────────────────────────
+    # Número de regiones distintas que han usado esta tarjeta (BIN)
+    distinct_regions = Transaccion.objects.filter(
+        bin=bin_val
+    ).values("customer_region").distinct().count()
+    CSI = max(distinct_regions, 1)
+
+    # ── DPE: Denial Pattern Entropy ──────────────────────────────────
+    # Entropía de Shannon de las razones de denegación para esta tarjeta
+    denial_reasons = list(
+        Transaccion.objects.filter(
+            bin=bin_val,
+            transaction_status="denegada"
+        ).exclude(
+            denial_reason__in=["unknown", ""]
+        ).values_list("denial_reason", flat=True)
+    )
+    DPE = round(_shannon_entropy(denial_reasons), 4)
+
+    return {
+        "AAR": AAR, "CMR": CMR, "ASI": ASI,
+        "VRR": VRR, "DAR": DAR, "CSI": float(CSI), "DPE": DPE,
+    }
+
+
+# ─── Predicción principal ────────────────────────────────────────────
 
 def predict_fraud(tx):
     """
-    tx: instancia Transaccion o dict con las features del nuevo modelo.
+    tx: instancia Transaccion o dict.
 
-    Features requeridas:
-      importe, fecha, card_brand, card_type, issuer_bank, payment_channel,
-      eci_code, num_installments, customer_region, city_population,
-      is_new_customer, days_since_first_purchase, avg_historical_amount,
-      category, num_items, has_discount, previous_failed_attempts
+    Calcula automáticamente:
+      - Features temporales (hora, día, mes)
+      - 7 ratios financieros (AAR, CMR, ASI, VRR, DAR, CSI, DPE)
     """
-    get = (lambda k: getattr(tx, k)) if not isinstance(tx, dict) else (lambda k: tx.get(k))
+    get = (lambda k: getattr(tx, k, None)) if not isinstance(tx, dict) else (lambda k: tx.get(k))
 
-    # Monto
-    amt = float(get("importe") or 0.0)
-    amt_log1p = math.log1p(max(0.0, amt))
+    # ── Temporales ──────────────────────────────────────────────────
+    fecha = get("fecha")
+    tx_hour, tx_day_of_week, tx_month = _derive_time_parts(fecha)
 
-    # Temporales
-    hour, weekday, month, is_weekend = _derive_time_parts(get("fecha"))
-    is_high_risk_hour = 1 if hour in (0, 1, 2, 3, 4, 5) else 0
+    # ── Monto ───────────────────────────────────────────────────────
+    amt = float(get("importe") or get("transaction_amount") or 0.0)
+    discount = float(get("discount_amount") or 0.0)
 
-    # Ciclicidad temporal
-    hour_sin = round(math.sin(2 * math.pi * hour / 24), 4)
-    hour_cos = round(math.cos(2 * math.pi * hour / 24), 4)
-    day_sin  = round(math.sin(2 * math.pi * weekday / 7), 4)
-    day_cos  = round(math.cos(2 * math.pi * weekday / 7), 4)
-    month_sin = round(math.sin(2 * math.pi * month / 12), 4)
-    month_cos = round(math.cos(2 * math.pi * month / 12), 4)
+    # ── ECI / Autenticación ─────────────────────────────────────────
+    eci = int(get("eci") or get("eci_code") or 5)
+    action_code = int(get("action_code") or 6)
 
-    # Tarjeta y pago
-    card_brand      = (get("card_brand") or "visa").strip().lower()
-    card_type       = (get("card_type") or "debit").strip().lower()
-    issuer_bank     = (get("issuer_bank") or "bcp").strip().lower()
-    payment_channel = (get("payment_channel") or "web").strip().lower()
-    eci_code        = int(get("eci_code") or 5)
-    has_3ds         = 1 if eci_code in (5, 2) else 0
+    # ── Cuotas / Items ──────────────────────────────────────────────
     num_installments = int(get("num_installments") or 0)
-
-    # Cliente
-    customer_region = (get("customer_region") or "lima").strip().lower()
-    city_population = int(get("city_population") or 0)
-    is_new_customer = 1 if get("is_new_customer") else 0
-    days_since_first = int(get("days_since_first_purchase") or 0)
-    avg_hist_amt    = float(get("avg_historical_amount") or 0.0)
-
-    # Pedido
-    category  = (get("category") or "otros").strip().lower()
     num_items = int(get("num_items") or 1)
-    has_discount = 1 if get("has_discount") else 0
-    prev_failed = int(get("previous_failed_attempts") or 0)
 
-    # Desviación de monto
-    amount_deviation = round((amt - avg_hist_amt) / (avg_hist_amt + 1e-6), 4)
-    amount_deviation = max(-10.0, min(50.0, amount_deviation))
+    # ── Categóricas ─────────────────────────────────────────────────
+    card_brand       = (get("card_brand") or "visa").strip().lower()
+    card_type        = (get("card_type") or "credito").strip().lower()
+    currency         = (get("currency") or "PEN").strip().upper()
+    transaction_status = (get("transaction_status") or "liquidada").strip().lower()
+    payment_channel  = (get("payment_channel") or "pago web").strip().lower()
+    wallet_yape      = (get("wallet_yape") or "no").strip().lower()
+    wallet_plin      = (get("wallet_plin") or "no").strip().lower()
+    product_category = (get("product_category") or get("category") or "otros").strip().lower()
+    issuer_bank      = (get("issuer_bank") or "bcp").strip().lower()
+    customer_region  = (get("customer_region") or "lima").strip().lower()
+    email_domain     = (get("email_domain") or "gmail.com").strip().lower()
+    denial_reason    = (get("denial_reason") or "unknown").strip().lower()
+    bin_val          = str(get("bin") or "404700").strip()
+    last_4           = str(get("last_4_digits") or "0000").strip()
 
-    # ─── Nuevas features derivadas ───
-    amt_hour_interaction = round(amt_log1p * hour_sin, 4)
-    amt_fail_interaction = round(math.tanh(amt / 500) * math.log1p(prev_failed), 4)
-    risk_score_smooth = round(math.tanh(
-        amount_deviation * 0.3 +
-        prev_failed * 0.5 +
-        is_new_customer * 0.4 +
-        (1 - has_3ds) * 0.3 +
-        is_high_risk_hour * 0.2
-    ), 4)
-    amt_pop_ratio = amt / (city_population + 1)
-    amt_pop_sigmoid = round(1 / (1 + math.exp(-10 * (amt_pop_ratio - 0.001))), 4)
-    customer_maturity = round(math.tanh(days_since_first / 365), 4)
-    night_newcust_score = round(
-        (1 - customer_maturity) * (1 - math.cos(2 * math.pi * hour / 24)) / 2, 4
-    )
-
-    # ─── Biometría Conductual y Telemetría ───
-    # Si no vienen en el request (ej. simulación manual antigua), simulamos valores legítimos promedio
-    t = np.random.uniform(-0.5, 0.5)
-    base_duration = t + np.random.normal(0, 0.25)
-    base_velocity = t + np.random.normal(0, 0.25)
-
-    session_duration = float(get("session_duration_minutes") or round(max(0.5, min(60.0, base_duration * 15 + 15)), 2))
-    interaction_vel = float(get("interaction_velocity") or round(max(0.5, min(100.0, base_velocity * 25 + 25)), 2))
-
-    device_tel_1 = float(get("device_telemetry_1") or round(np.random.normal(-1.0, 1.0), 4))
-    device_tel_2 = float(get("device_telemetry_2") or round(np.random.normal(0, 2.0), 4))
-    device_tel_3 = float(get("device_telemetry_3") or round(np.random.normal(0, 2.0), 4))
-    device_tel_4 = float(get("device_telemetry_4") or round(np.random.normal(0, 2.0), 4))
-    device_tel_5 = float(get("device_telemetry_5") or round(np.random.normal(0, 2.0), 4))
+    # ── Ratios financieros (calculados automáticamente) ─────────────
+    ratios = _compute_ratios(amt, bin_val, product_category, eci, last_4)
 
     payload = {
+        # Numéricas
         "transaction_amount": amt,
-        "amt_log1p":          amt_log1p,
-        "hour":               hour,
-        "day_of_week":        weekday,
-        "month":              month,
-        "is_weekend":         is_weekend,
-        "eci_code":           eci_code,
-        "has_3ds":            has_3ds,
-        "city_population":    city_population,
-        "num_items":          num_items,
-        "has_discount":       has_discount,
+        "discount_amount":    discount,
+        "tx_hour":            tx_hour,
+        "tx_day_of_week":     tx_day_of_week,
+        "tx_month":           tx_month,
+        "eci":                eci,
+        "action_code":        action_code,
         "num_installments":   num_installments,
-        "previous_failed_attempts": prev_failed,
-        "is_new_customer":    is_new_customer,
-        "days_since_first_purchase": days_since_first,
-        "avg_historical_amount": avg_hist_amt,
-        "is_high_risk_hour":  is_high_risk_hour,
-        "amount_deviation":   amount_deviation,
-        "hour_sin":           hour_sin,
-        "hour_cos":           hour_cos,
-        "day_sin":            day_sin,
-        "day_cos":            day_cos,
-        "month_sin":          month_sin,
-        "month_cos":          month_cos,
+        "num_items":          num_items,
+        # Ratios calculados
+        "AAR":                ratios["AAR"],
+        "CMR":                ratios["CMR"],
+        "ASI":                ratios["ASI"],
+        "VRR":                ratios["VRR"],
+        "DAR":                ratios["DAR"],
+        "CSI":                ratios["CSI"],
+        "DPE":                ratios["DPE"],
+        # Categóricas
         "card_brand":         card_brand,
         "card_type":          card_type,
-        "issuer_bank":        issuer_bank,
+        "currency":           currency,
+        "transaction_status": transaction_status,
         "payment_channel":    payment_channel,
+        "wallet_yape":        wallet_yape,
+        "wallet_plin":        wallet_plin,
+        "product_category":   product_category,
+        "issuer_bank":        issuer_bank,
         "customer_region":    customer_region,
-        "category":           category,
-        "amt_hour_interaction": amt_hour_interaction,
-        "amt_fail_interaction": amt_fail_interaction,
-        "risk_score_smooth":  risk_score_smooth,
-        "amt_pop_sigmoid":    amt_pop_sigmoid,
-        "customer_maturity":  customer_maturity,
-        "night_newcust_score": night_newcust_score,
-        "session_duration_minutes": session_duration,
-        "interaction_velocity": interaction_vel,
-        "device_telemetry_1": device_tel_1,
-        "device_telemetry_2": device_tel_2,
-        "device_telemetry_3": device_tel_3,
-        "device_telemetry_4": device_tel_4,
-        "device_telemetry_5": device_tel_5,
+        "email_domain":       email_domain,
+        "denial_reason":      denial_reason,
+        "bin":                bin_val,
     }
 
     score, exp = predict_and_explain(payload)
+
+    # Guardar ratios calculados de vuelta en la transacción si es un modelo
+    if not isinstance(tx, dict) and hasattr(tx, 'pk') and tx.pk:
+        from .models import Transaccion as TxModel
+        TxModel.objects.filter(pk=tx.pk).update(
+            ratio_aar=Decimal(str(ratios["AAR"])),
+            ratio_cmr=Decimal(str(ratios["CMR"])),
+            ratio_asi=Decimal(str(ratios["ASI"])),
+            ratio_vrr=Decimal(str(ratios["VRR"])),
+            ratio_dar=Decimal(str(ratios["DAR"])),
+            ratio_csi=Decimal(str(ratios["CSI"])),
+            ratio_dpe=Decimal(str(ratios["DPE"])),
+        )
+
     return score, json.dumps(exp, ensure_ascii=False)

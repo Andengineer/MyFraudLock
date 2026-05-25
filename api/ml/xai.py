@@ -1,8 +1,17 @@
 # api/ml/xai.py
 """
 Módulo de Explicabilidad (XAI) para el modelo de detección de fraude.
-Usa SHAP (DeepExplainer / KernelExplainer) para generar explicaciones
-de las predicciones del modelo Deep Learning.
+Usa SHAP (KernelExplainer) para generar explicaciones de las predicciones
+del modelo DAFD-Net (DNN multi-input con embeddings categoriales).
+
+Modelo: DNN_optimized.keras (DAFD-Net — Entrenamiento/04_train_optimized.py)
+Features numéricas: transaction_amount, discount_amount, tx_hour, tx_day_of_week,
+    tx_month, eci, action_code, num_installments, num_items, AAR, CMR, ASI, VRR,
+    DAR, CSI, DPE
+Categorías OHE (low-card): card_brand, card_type, currency, transaction_status,
+    payment_channel, wallet_yape, wallet_plin, product_category
+Categorías Embedding (high-card): issuer_bank, customer_region, email_domain,
+    denial_reason, bin
 """
 from pathlib import Path
 import json, numpy as np, pandas as pd
@@ -22,15 +31,39 @@ except Exception:
     pass
 
 ML_DIR = Path(__file__).resolve().parent
-MODEL_PATH   = ML_DIR / "best_model.keras"
-PREPROC_PATH = ML_DIR / "preprocessor.joblib"
-FEATS_PATH   = ML_DIR / "feature_names.json"
-BG_PATH      = ML_DIR / "background.npy"
-GROUPMAP_PATH = ML_DIR / "group_map.json"
+
+# Archivos del nuevo modelo DAFD-Net
+MODEL_PATH        = ML_DIR / "best_model.keras"
+DENSE_PREPROC     = ML_DIR / "dnn_dense_preprocessor.joblib"
+ORD_ENCODER       = ML_DIR / "dnn_ordinal_encoder.joblib"
+EMBED_SPEC_PATH   = ML_DIR / "dnn_embedding_spec.json"
+FULL_PREPROC_PATH = ML_DIR / "preprocessor.joblib"
+FEATS_PATH        = ML_DIR / "feature_names.json"
+BG_PATH           = ML_DIR / "background.npy"
+GROUPMAP_PATH     = ML_DIR / "group_map.json"
+
+# ── Features del modelo ─────────────────────────────────────────────
+NUMERIC_FEATURES = [
+    "transaction_amount", "discount_amount",
+    "tx_hour", "tx_day_of_week", "tx_month",
+    "eci", "action_code", "num_installments", "num_items",
+    "AAR", "CMR", "ASI", "VRR", "DAR", "CSI", "DPE",
+]
+OHE_CATEGORICAL_FEATURES = [
+    "card_brand", "card_type", "currency",
+    "transaction_status", "payment_channel",
+    "wallet_yape", "wallet_plin",
+    "product_category",
+]
+EMBED_COLS = ["issuer_bank", "customer_region", "email_domain", "denial_reason", "bin"]
+ALL_FEATURES = NUMERIC_FEATURES + OHE_CATEGORICAL_FEATURES + EMBED_COLS
 
 # Carga lazy (en la primera llamada)
 _model = None
-_preproc = None
+_dense_preproc = None
+_ord_encoder = None
+_embed_spec = None
+_full_preproc = None
 _feature_names = None
 _background = None
 _group_map = None
@@ -39,15 +72,19 @@ _explainer = None
 
 def _ensure_artifacts():
     """Carga artefactos y el explainer una sola vez (lazy)."""
-    global _model, _preproc, _feature_names, _background, _group_map, _explainer
-    if _model is not None and _preproc is not None and _feature_names is not None and _background is not None:
-        if _explainer is None:
-            _init_explainer()
+    global _model, _dense_preproc, _ord_encoder, _embed_spec
+    global _full_preproc, _feature_names, _background, _group_map, _explainer
+
+    if _model is not None:
         return
 
     # 1) Cargar artefactos
-    _model = tf.keras.models.load_model(MODEL_PATH)
-    _preproc = load(PREPROC_PATH)
+    _model = tf.keras.models.load_model(MODEL_PATH, compile=False)
+    _dense_preproc = load(DENSE_PREPROC)
+    _ord_encoder = load(ORD_ENCODER)
+    with open(EMBED_SPEC_PATH, encoding="utf-8") as f:
+        _embed_spec = json.load(f)
+    _full_preproc = load(FULL_PREPROC_PATH)
     with open(FEATS_PATH, encoding="utf-8") as f:
         _feature_names = json.load(f)
     _background = np.load(BG_PATH)
@@ -55,27 +92,128 @@ def _ensure_artifacts():
         with open(GROUPMAP_PATH, encoding="utf-8") as f:
             _group_map = json.load(f)
 
-    # 2) Inicializar explainer
-    _init_explainer()
+
+def _build_multi_inputs(df):
+    """Transforma un DataFrame de 1 fila en los inputs del modelo multi-input.
+    Returns: list [X_dense, cat_col_1, cat_col_2, ...]
+    """
+    X_dense = _dense_preproc.transform(df)
+    if hasattr(X_dense, "toarray"):
+        X_dense = X_dense.toarray()
+
+    X_ord = _ord_encoder.transform(df[EMBED_COLS])
+    X_ord = np.clip(X_ord.astype(np.int64) + 1, 0, None)  # shift for embedding (0=padding)
+
+    inputs = [X_dense]
+    for j in range(len(EMBED_COLS)):
+        inputs.append(X_ord[:, j:j+1])
+    return inputs
+
+
+def _predict_from_full_ohe(X_full):
+    """Wrapper para SHAP: recibe la representación OHE completa (del full preprocessor)
+    y genera predicción usando el modelo multi-input.
+
+    Para SHAP necesitamos una función que tome un array numpy (background) y
+    devuelva probabilidades. Aquí re-mapeamos del OHE completo al multi-input.
+
+    NOTA: Dado que reconstruir desde OHE→raw→multi-input es costoso y propenso
+    a errores de inversión, usamos una aproximación: el background ya está en
+    formato OHE completo, y usamos el full preprocessor para SHAP directamente.
+    """
+    return _model.predict(
+        _split_ohe_to_multi(X_full), verbose=0
+    ).ravel()
+
+
+def _split_ohe_to_multi(X_full):
+    """Divide la representación OHE completa en dense + ordinal para el modelo.
+
+    El preprocessor completo produce: [num_scaled | ohe_all_cats]
+    El dense_preprocessor produce:    [num_scaled | ohe_low_cats]
+    Necesitamos mapear de uno al otro.
+
+    Estrategia simplificada: como SHAP opera sobre el espacio OHE completo,
+    re-usamos las columnas numéricas + OHE low-card del full preprocessor,
+    y para las columnas de embedding, tomamos el argmax de las columnas OHE
+    correspondientes a cada categoría.
+    """
+    n_samples = X_full.shape[0]
+
+    # Posiciones en el full preprocessor output
+    n_num = len(NUMERIC_FEATURES)
+
+    # Extraer numéricas (primeras n_num columnas)
+    X_num = X_full[:, :n_num]
+
+    # Extraer OHE para low-card categories
+    # El full preprocessor hace OHE de ALL cats (OHE + EMBED), pero
+    # el dense preprocessor solo hace OHE de OHE cats.
+    # Las columnas del full preprocessor son: [num | ohe_of_all_cats]
+    # Necesitamos identificar qué columnas corresponden a las OHE low-card cats
+
+    # Obtener los nombres de features del full preprocessor
+    try:
+        full_cat_names = list(_full_preproc.named_transformers_["cat"]
+                            .named_steps["onehot"]
+                            .get_feature_names_out(OHE_CATEGORICAL_FEATURES + EMBED_COLS))
+    except Exception:
+        full_cat_names = _feature_names[n_num:]
+
+    # Identificar columnas que son de OHE low-card
+    ohe_low_indices = []
+    embed_groups = {col: [] for col in EMBED_COLS}
+
+    for idx, fname in enumerate(full_cat_names):
+        is_embed = False
+        for ecol in EMBED_COLS:
+            if fname.startswith(ecol + "_"):
+                embed_groups[ecol].append(idx)
+                is_embed = True
+                break
+        if not is_embed:
+            ohe_low_indices.append(idx)
+
+    # Dense input = num + ohe_low
+    X_ohe_low = X_full[:, [n_num + i for i in ohe_low_indices]]
+    X_dense = np.hstack([X_num, X_ohe_low])
+
+    # Ordinal inputs (argmax de cada grupo OHE → índice de embedding)
+    cat_inputs = []
+    for ecol in EMBED_COLS:
+        indices = embed_groups[ecol]
+        if indices:
+            ohe_slice = X_full[:, [n_num + i for i in indices]]
+            ordinal = np.argmax(ohe_slice, axis=1).reshape(-1, 1).astype(np.int32) + 1
+        else:
+            ordinal = np.zeros((n_samples, 1), dtype=np.int32)
+        cat_inputs.append(ordinal)
+
+    return [X_dense] + cat_inputs
 
 
 def _init_explainer():
-    """DeepExplainer si se puede, KernelExplainer de fallback."""
+    """KernelExplainer sobre el espacio OHE completo."""
     global _explainer
     if _explainer is not None:
         return
-    try:
-        _explainer = shap.DeepExplainer(_model, _background)
-    except Exception:
-        _explainer = shap.KernelExplainer(
-            lambda X: _model.predict(X, verbose=0), _background
-        )
+
+    bg = _background
+    # Submuestrear si background es muy grande
+    if bg.shape[0] > 100:
+        rng = np.random.default_rng(42)
+        idx = rng.choice(bg.shape[0], 100, replace=False)
+        bg = bg[idx]
+
+    _explainer = shap.KernelExplainer(
+        _predict_from_full_ohe, bg
+    )
 
 
-def _transform(payload: dict) -> np.ndarray:
-    """Transforma el payload crudo usando el preprocesador guardado."""
+def _transform_full(payload: dict) -> np.ndarray:
+    """Transforma el payload crudo usando el preprocessor completo (para SHAP)."""
     df = pd.DataFrame([payload])
-    X = _preproc.transform(df)
+    X = _full_preproc.transform(df)
     if hasattr(X, "toarray"):
         X = X.toarray()
     return X
@@ -84,67 +222,84 @@ def _transform(payload: dict) -> np.ndarray:
 # ── Mapeo de nombres legibles para explicabilidad ────────────────────
 FEATURE_DISPLAY_NAMES = {
     "transaction_amount": "Monto Transacción",
-    "amt_log1p": "Monto (log)",
-    "amount_deviation": "Desviación de monto",
-    "hour": "Hora",
-    "hour_sin": "Hora (sen)",
-    "hour_cos": "Hora (cos)",
-    "day_of_week": "Día",
-    "day_sin": "Día (sen)",
-    "day_cos": "Día (cos)",
-    "month": "Mes",
-    "month_sin": "Mes (sen)",
-    "month_cos": "Mes (cos)",
-    "is_weekend": "Fin de Semana",
-    "is_new_customer": "Cliente Nuevo",
-    "is_high_risk_hour": "Hora de Riesgo",
-    "eci_code": "Código ECI",
-    "has_3ds": "Aprobación 3DS",
-    "has_discount": "Descuento Aplicado",
-    "city_population": "Población",
-    "num_items": "Cantidad de Ítems",
+    "transaction": "Monto Transacción",
+    "discount_amount": "Monto Descuento",
+    "discount": "Monto Descuento",
+    "tx_hour": "Hora",
+    "tx_day_of_week": "Día de Semana",
+    "tx_month": "Mes",
+    "tx": "Temporal (Hora/Día/Mes)",
+    "eci": "Código ECI (Autenticación)",
+    "action_code": "Código de Acción",
+    "action": "Código de Acción",
     "num_installments": "Cuotas",
-    "previous_failed_attempts": "Intentos Fallidos",
-    "days_since_first_purchase": "Antigüedad (días)",
-    "avg_historical_amount": "Prom. Histórico",
+    "num_items": "Cantidad de Ítems",
+    "num": "Cuotas / Ítems",
+    "AAR": "Ratio Monto/Promedio (AAR)",
+    "CMR": "Ratio Monto/Mediana Categoría (CMR)",
+    "ASI": "Índice Fortaleza Autenticación (ASI)",
+    "VRR": "Ratio Velocidad Riesgo (VRR)",
+    "DAR": "Ratio Denegación/Intentos (DAR)",
+    "CSI": "Índice Compartición Tarjeta (CSI)",
+    "DPE": "Entropía Patrón Denegación (DPE)",
     "card_brand": "Marca de Tarjeta",
+    "card": "Tarjeta (Marca/Tipo)",
     "card_type": "Tipo de Tarjeta",
-    "issuer_bank": "Banco Emisor",
+    "currency": "Moneda",
+    "transaction_status": "Estado Transacción",
     "payment_channel": "Canal de Pago",
-    "customer_region": "Región",
-    "category": "Categoría de Producto",
-    "amt_hour_interaction": "Anomalía Monto/Hora",
-    "amt_fail_interaction": "Anomalía Monto/Intentos Fallidos",
-    "risk_score_smooth": "Puntaje de Riesgo Compuesto",
-    "amt_pop_sigmoid": "Monto vs Población",
-    "customer_maturity": "Madurez del Cliente",
-    "night_newcust_score": "Riesgo Nocturno Nuevo Cliente",
-    "session_duration_minutes": "Duración de Sesión (min)",
-    "interaction_velocity": "Velocidad de Interacción (Biometría)",
-    "device_telemetry_1": "Telemetría Dispositivo 1",
-    "device_telemetry_2": "Telemetría Dispositivo 2",
-    "device_telemetry_3": "Telemetría Dispositivo 3",
-    "device_telemetry_4": "Telemetría Dispositivo 4",
-    "device_telemetry_5": "Telemetría Dispositivo 5"
+    "payment": "Canal de Pago",
+    "wallet_yape": "Wallet Yape",
+    "wallet_plin": "Wallet Plin",
+    "wallet": "Wallets Digitales",
+    "product_category": "Categoría Producto",
+    "product": "Categoría Producto",
+    "issuer_bank": "Banco Emisor",
+    "issuer": "Banco Emisor",
+    "customer_region": "Región del Cliente",
+    "customer": "Región del Cliente",
+    "email_domain": "Dominio Email",
+    "email": "Dominio Email",
+    "denial_reason": "Razón de Denegación",
+    "denial": "Razón de Denegación",
+    "bin": "BIN de Tarjeta",
 }
 
 
 def _aggregate(feature_contrib: dict) -> dict:
     """
-    Agrupa impactos One-Hot por feature base.
+    Agrupa impactos One-Hot por feature base usando el group_map.
     """
-    categories = [
-        "card_brand", "card_type", "issuer_bank",
-        "payment_channel", "customer_region", "category"
-    ]
+    if not _group_map:
+        # Fallback: agrupar por prefijo
+        categories = [
+            "card_brand", "card_type", "currency",
+            "transaction_status", "payment_channel",
+            "wallet_yape", "wallet_plin",
+            "product_category", "issuer_bank",
+            "customer_region", "email_domain",
+            "denial_reason", "bin",
+        ]
+        agg = {}
+        for name, val in feature_contrib.items():
+            base = name
+            for cat in categories:
+                if name.startswith(cat + "_"):
+                    base = cat
+                    break
+            agg[base] = agg.get(base, 0.0) + val
+        return agg
+
+    # Usar group_map: invertir para lookup rápido
+    feat_to_group = {}
+    for group, feats in _group_map.items():
+        for f in feats:
+            feat_to_group[f] = group
+
     agg = {}
     for name, val in feature_contrib.items():
-        base = name
-        for cat in categories:
-            if name.startswith(cat + "_"):
-                base = cat
-                break
-        agg[base] = agg.get(base, 0.0) + val
+        group = feat_to_group.get(name, name)
+        agg[group] = agg.get(group, 0.0) + val
     return agg
 
 
@@ -152,26 +307,27 @@ def predict_and_explain(payload: dict, top_k: int = 6, aggregate: bool = True):
     """
     Recibe un dict con las features crudas y retorna (score, explanation).
 
-    payload debe contener claves numéricas:
-      transaction_amount, amt_log1p, hour, day_of_week, month, is_weekend,
-      eci_code, has_3ds, city_population, num_items, has_discount,
-      num_installments, previous_failed_attempts, is_new_customer,
-      days_since_first_purchase, avg_historical_amount, is_high_risk_hour,
-      amount_deviation, hour_sin, hour_cos, day_sin, day_cos, month_sin, month_cos
-
-    Y categóricas:
-      card_brand, card_type, issuer_bank, payment_channel,
-      customer_region, category
+    payload debe contener claves coincidentes con ALL_FEATURES:
+      transaction_amount, discount_amount, tx_hour, tx_day_of_week, tx_month,
+      eci, action_code, num_installments, num_items,
+      AAR, CMR, ASI, VRR, DAR, CSI, DPE,
+      card_brand, card_type, currency, transaction_status, payment_channel,
+      wallet_yape, wallet_plin, product_category,
+      issuer_bank, customer_region, email_domain, denial_reason, bin
     """
     _ensure_artifacts()
 
-    X = _transform(payload)
-    prob = float(_model.predict(X, verbose=0).ravel()[0])
+    # 1. Predicción con modelo multi-input
+    df = pd.DataFrame([payload])
+    inputs = _build_multi_inputs(df)
+    prob = float(_model.predict(inputs, verbose=0).ravel()[0])
     score = float(prob * 100)
 
-    # SHAP values
-    shap_vals = _explainer.shap_values(X)
-    sv = shap_vals[0][0] if isinstance(shap_vals, list) else shap_vals[0]
+    # 2. SHAP values sobre representación OHE completa
+    _init_explainer()
+    X_full = _transform_full(payload)
+    shap_vals = _explainer.shap_values(X_full, nsamples=100)
+    sv = shap_vals[0] if isinstance(shap_vals, list) else shap_vals
     sv = np.squeeze(sv)
 
     contrib = {name: float(sv[i]) for i, name in enumerate(_feature_names)}
@@ -181,45 +337,97 @@ def predict_and_explain(payload: dict, top_k: int = 6, aggregate: bool = True):
 
     ordered = sorted(contrib.items(), key=lambda kv: abs(kv[1]), reverse=True)[:top_k]
 
-    # Añadir nombres legibles y lógica de negocio
+    # 3. Añadir nombres legibles y lógica de negocio
     factors = []
     explicacion_negocio = []
-    
+
     for k, v in ordered:
         display = FEATURE_DISPLAY_NAMES.get(k, k.replace("_", " ").title())
         val_raw = payload.get(k, "—")
         factors.append({"feature": k, "display_name": display, "impact": v, "value": val_raw})
 
-        # Generar reglas de negocio para los factores agravantes (aumentan riesgo)
-        if v > 0.05:  # umbral mínimo para destacarlo narrativamente
-            if k == "amount_deviation" and payload.get("amount_deviation", 0) > 0.2:
-                explicacion_negocio.append("El monto supera significativamente el promedio histórico de compras de este usuario.")
-            elif k == "is_new_customer" and payload.get("is_new_customer") == 1:
-                explicacion_negocio.append("Es un cliente nuevo y sin historial verificado en la plataforma.")
-            elif k == "previous_failed_attempts" and payload.get("previous_failed_attempts", 0) > 0:
-                explicacion_negocio.append(f"Se detectaron {payload.get('previous_failed_attempts')} intentos de pago fallidos previos en corto tiempo.")
-            elif k == "transaction_amount":
-                # Only warn if the impact is significantly high
-                explicacion_negocio.append(f"El monto transaccional neto representa un volumen inusual o de alto riesgo.")
-            elif k == "is_high_risk_hour" and payload.get("is_high_risk_hour") == 1:
-                explicacion_negocio.append("La transacción se intentó en un horario atípico considerado de alto riesgo (ej. madrugada).")
-            elif k == "category":
-                cat = str(payload.get("category", "")).replace("_", " ").title()
-                explicacion_negocio.append(f"La categoría de producto ({cat}) refleja alta vulnerabilidad a intentos de fraude en este contexto.")
-            elif k == "card_brand" or k == "issuer_bank":
-                explicacion_negocio.append("El bin de tarjeta (emisor/franquicia) está correlacionado con esquemas de fraude detectados recientemente.")
-            elif k == "has_3ds" and payload.get("has_3ds") == 0:
-                explicacion_negocio.append("El pago carece de mecanismo de verificación dinámico 3D Secure (baja fricción).")
-            elif k == "num_items" and payload.get("num_items", 0) > 2:
-                explicacion_negocio.append("La cantidad múltiple de artículos sugiere comportamiento tipo 'acaparamiento' fraudulento.")
-            elif k == "customer_region":
-                explicacion_negocio.append("La ubicación o región del incidente cruza con zonas de concurrencia de fraude o desconectadas de sus patrones habituales.")
-            elif k == "interaction_velocity":
-                explicacion_negocio.append("La biometría conductual detectó una velocidad de interacción anómala (potencial uso de bots o scripts automatizados).")
-            elif k == "night_newcust_score":
-                explicacion_negocio.append("Se detectó un patrón de alto riesgo: cliente sin historial operando en horarios de madrugada.")
-            elif k.startswith("device_telemetry_"):
-                explicacion_negocio.append("Se detectaron anomalías en la telemetría multidimensional del dispositivo (firma del equipo no concuerda con usuario legítimo).")
+        # Generar reglas de negocio para factores agravantes
+        if v > 0.03:
+            if k in ("DAR", "denial") and payload.get("DAR", 0) > 0.3:
+                explicacion_negocio.append(
+                    f"Alto ratio de denegaciones ({payload.get('DAR', 0):.2f}): "
+                    "la tarjeta tiene un historial significativo de intentos rechazados."
+                )
+            elif k in ("VRR", ) and payload.get("VRR", 0) > 30:
+                explicacion_negocio.append(
+                    f"Velocidad de transacciones anormalmente alta (VRR={payload.get('VRR', 0):.1f}): "
+                    "patrón compatible con card testing automatizado."
+                )
+            elif k in ("AAR", ) and payload.get("AAR", 0) > 2.0:
+                explicacion_negocio.append(
+                    f"El monto supera significativamente el promedio del cliente (AAR={payload.get('AAR', 0):.2f})."
+                )
+            elif k in ("CMR", ) and payload.get("CMR", 0) > 3.0:
+                explicacion_negocio.append(
+                    f"Monto muy por encima de la mediana de su categoría (CMR={payload.get('CMR', 0):.2f})."
+                )
+            elif k in ("CSI", ) and payload.get("CSI", 0) > 1:
+                explicacion_negocio.append(
+                    f"La tarjeta está siendo compartida por {int(payload.get('CSI', 0))} usuarios distintos."
+                )
+            elif k in ("DPE", ) and payload.get("DPE", 0) > 0.5:
+                explicacion_negocio.append(
+                    "Se detectó alta entropía en los patrones de denegación: "
+                    "múltiples razones de rechazo distintas sugieren probing sistemático."
+                )
+            elif k in ("ASI", ) and payload.get("ASI", 0) < 0.3:
+                explicacion_negocio.append(
+                    "Historial débil de autenticación segura (ASI bajo): "
+                    "el cliente raramente usa 3D Secure."
+                )
+            elif k in ("transaction", "transaction_amount"):
+                explicacion_negocio.append(
+                    "El monto transaccional neto representa un volumen inusual o de alto riesgo."
+                )
+            elif k in ("eci", ) and payload.get("eci", 5) not in (2, 5):
+                explicacion_negocio.append(
+                    "La transacción carece de verificación 3D Secure (ECI indica baja autenticación)."
+                )
+            elif k in ("tx", ) or k == "tx_hour":
+                hour = payload.get("tx_hour", 12)
+                if hour <= 5 or hour >= 23:
+                    explicacion_negocio.append(
+                        "La transacción se realizó en horario atípico (madrugada/noche)."
+                    )
+            elif k in ("email", "email_domain"):
+                domain = str(payload.get("email_domain", ""))
+                temp_domains = {"10minutemail.com", "guerrillamail.com", "mailinator.com",
+                                "tempmail.com", "yopmail.com"}
+                if domain.lower() in temp_domains:
+                    explicacion_negocio.append(
+                        f"El email usa un dominio temporal/desechable ({domain}), "
+                        "frecuentemente asociado a fraude."
+                    )
+            elif k in ("card", "card_brand", "card_type"):
+                explicacion_negocio.append(
+                    "El tipo o marca de tarjeta está correlacionado con esquemas de fraude detectados."
+                )
+            elif k in ("issuer", "issuer_bank"):
+                explicacion_negocio.append(
+                    "El banco emisor muestra correlación con patrones de fraude recientes."
+                )
+            elif k in ("product", "product_category"):
+                cat = str(payload.get("product_category", "")).replace("_", " ").title()
+                explicacion_negocio.append(
+                    f"La categoría de producto ({cat}) presenta alta vulnerabilidad a fraude."
+                )
+            elif k in ("customer", "customer_region"):
+                explicacion_negocio.append(
+                    "La región del cliente cruza con zonas de alta incidencia de fraude."
+                )
+            elif k in ("action", "action_code"):
+                explicacion_negocio.append(
+                    "El código de acción de la pasarela indica un patrón de respuesta atípico."
+                )
+            elif k in ("wallet", "wallet_yape", "wallet_plin"):
+                explicacion_negocio.append(
+                    "El uso (o no uso) de wallet digital influye en el perfil de riesgo."
+                )
 
     # Deduplicar
     explicacion_negocio = list(dict.fromkeys(explicacion_negocio))

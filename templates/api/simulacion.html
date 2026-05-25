@@ -34,13 +34,29 @@
         <div class="row g-3">
             <div class="col-lg-6 animate-in delay-2">
                 <div class="card">
-                    <div class="card-header card-brand-header"><h5 class="mb-0">Ingresar datos</h5></div>
+                    <div class="card-header card-brand-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Ingresar datos</h5>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-danger btn-icon" onclick="fillFraud()"><i class="bi bi-bug"></i> Caso Fraude</button>
+                            <button type="button" class="btn btn-sm btn-success btn-icon" onclick="fillLegit()"><i class="bi bi-check-circle"></i> Caso Legítimo</button>
+                        </div>
+                    </div>
                     <div class="card-body">
-                        <form method="post" class="row g-3" action="{% url 'simulacion_front' %}">
+                        <form method="post" class="row g-3" id="simForm" action="{% url 'simulacion_front' %}">
                             {% csrf_token %}
                             <div class="col-md-4">
                                 <label class="form-label" for="importe">Importe (S/)</label>
                                 <input class="form-control" id="importe" type="number" step="0.01" name="importe" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="discount_amount">Descuento (S/)</label>
+                                <input class="form-control" id="discount_amount" name="discount_amount" type="number" step="0.01" value="0">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="currency">Moneda</label>
+                                <select class="form-select" id="currency" name="currency">
+                                    <option value="PEN">PEN (Soles)</option>
+                                </select>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label" for="card_brand">Marca de Tarjeta</label>
@@ -55,8 +71,9 @@
                             <div class="col-md-4">
                                 <label class="form-label" for="card_type">Tipo de Tarjeta</label>
                                 <select class="form-select" id="card_type" name="card_type" required>
-                                    <option value="debit">Débito</option>
-                                    <option value="credit">Crédito</option>
+                                    <option value="credito">Crédito</option>
+                                    <option value="debito">Débito</option>
+                                    <option value="unknown">Desconocido</option>
                                 </select>
                             </div>
                             <div class="col-md-4">
@@ -67,14 +84,20 @@
                                     <option value="interbank">Interbank</option>
                                     <option value="scotiabank">Scotiabank</option>
                                     <option value="falabella">Falabella</option>
+                                    <option value="ripley">Ripley</option>
+                                    <option value="banbif">BanBif</option>
+                                    <option value="caja_piura">Caja Piura</option>
+                                    <option value="nacion">Banco de la Nación</option>
+                                    <option value="cencosud">Cencosud</option>
+                                    <option value="financiera_oh">Financiera Oh!</option>
                                     <option value="otros">Otros</option>
                                 </select>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label" for="payment_channel">Canal de Pago</label>
                                 <select class="form-select" id="payment_channel" name="payment_channel">
-                                    <option value="web">Web</option>
-                                    <option value="mobile">Móvil</option>
+                                    <option value="pago web">Pago Web</option>
+                                    <option value="pago movil">Pago Móvil</option>
                                     <option value="app">App</option>
                                 </select>
                             </div>
@@ -99,11 +122,19 @@
                                     <option value="la_libertad">La Libertad</option>
                                     <option value="junin">Junín</option>
                                     <option value="callao">Callao</option>
+                                    <option value="cajamarca">Cajamarca</option>
+                                    <option value="ica">Ica</option>
+                                    <option value="ancash">Áncash</option>
+                                    <option value="loreto">Loreto</option>
+                                    <option value="tacna">Tacna</option>
+                                    <option value="huanuco">Huánuco</option>
+                                    <option value="san_martin">San Martín</option>
+                                    <option value="ucayali">Ucayali</option>
                                 </select>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label" for="category">Categoría</label>
-                                <select class="form-select" id="category" name="category">
+                                <label class="form-label" for="product_category">Categoría</label>
+                                <select class="form-select" id="product_category" name="product_category">
                                     <option value="repuestos_moto">Repuestos Moto</option>
                                     <option value="indumentaria_moto">Indumentaria Moto</option>
                                     <option value="aceites_lubricantes">Aceites/Lubricantes</option>
@@ -114,6 +145,22 @@
                                 </select>
                             </div>
                             <div class="col-md-4">
+                                <label class="form-label" for="email_domain">Email Dominio</label>
+                                <select class="form-select" id="email_domain" name="email_domain">
+                                    <option value="gmail.com">gmail.com</option>
+                                    <option value="hotmail.com">hotmail.com</option>
+                                    <option value="outlook.com">outlook.com</option>
+                                    <option value="yahoo.com">yahoo.com</option>
+                                    <option value="icloud.com">icloud.com</option>
+                                    <option value="live.com">live.com</option>
+                                    <option value="yopmail.com">yopmail.com (temp)</option>
+                                    <option value="mailinator.com">mailinator.com (temp)</option>
+                                    <option value="guerrillamail.com">guerrillamail.com (temp)</option>
+                                    <option value="tempmail.com">tempmail.com (temp)</option>
+                                    <option value="10minutemail.com">10minutemail.com (temp)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
                                 <label class="form-label" for="num_items">Nro. Ítems</label>
                                 <input class="form-control" id="num_items" name="num_items" type="number" min="1" value="1">
                             </div>
@@ -122,29 +169,32 @@
                                 <input class="form-control" id="num_installments" name="num_installments" type="number" min="0" value="0">
                             </div>
                             <div class="col-md-3">
-                                <label class="form-label" for="previous_failed_attempts">Intentos fallidos</label>
-                                <input class="form-control" id="previous_failed_attempts" name="previous_failed_attempts" type="number" min="0" value="0">
+                                <label class="form-label" for="bin">BIN Tarjeta</label>
+                                <input class="form-control" id="bin" name="bin" type="text" value="404700" maxlength="6">
                             </div>
                             <div class="col-md-3">
-                                <label class="form-label" for="avg_historical_amount">Prom. Historial (S/)</label>
-                                <input class="form-control" id="avg_historical_amount" name="avg_historical_amount" type="number" step="0.01" value="0">
-                            </div>
-                            <!-- Biometría conductual (nuevos campos del modelo) -->
-                            <div class="col-md-3">
-                                <label class="form-label" for="session_duration_minutes">Duración Sesión (min)</label>
-                                <input class="form-control" id="session_duration_minutes" name="session_duration_minutes" type="number" step="0.01" placeholder="(Automático)" title="Dejar vacío para simular promedio">
+                                <label class="form-label">Wallet Yape</label>
+                                <select class="form-select" id="wallet_yape" name="wallet_yape">
+                                    <option value="no">No</option>
+                                    <option value="si">Sí</option>
+                                </select>
                             </div>
                             <div class="col-md-3">
-                                <label class="form-label" for="interaction_velocity">Velocidad Interacción</label>
-                                <input class="form-control" id="interaction_velocity" name="interaction_velocity" type="number" step="0.01" placeholder="(Automático)" title="Dejar vacío para simular promedio">
+                                <label class="form-label">Wallet Plin</label>
+                                <select class="form-select" id="wallet_plin" name="wallet_plin">
+                                    <option value="no">No</option>
+                                    <option value="si">Sí</option>
+                                </select>
                             </div>
-                            <div class="col-md-3">
-                                <div class="form-check mt-4">
-                                    <input class="form-check-input" type="checkbox" id="is_new_customer" name="is_new_customer">
-                                    <label class="form-check-label" for="is_new_customer">Cliente nuevo</label>
+                            <!-- Info: Ratios calculados automáticamente -->
+                            <div class="col-12"><hr>
+                                <div class="alert alert-info py-2 mb-0 small">
+                                    <i class="bi bi-cpu me-1"></i>
+                                    <strong>Ratios financieros</strong> (AAR, CMR, ASI, VRR, DAR, CSI, DPE) se calculan automáticamente
+                                    usando el historial de transacciones del BIN en la base de datos.
                                 </div>
                             </div>
-                            <div class="col-12">
+                            <div class="col-12 d-flex gap-2 mt-2">
                                 <button class="btn btn-brand btn-icon" type="submit">
                                     <i class="bi bi-search"></i> Simular
                                 </button>
@@ -256,12 +306,15 @@
         <div class="card animate-in delay-2">
             <div class="card-header card-brand-header"><h5 class="mb-0">Cargar archivo CSV</h5></div>
             <div class="card-body">
-                <p class="mb-2"><b>Formato esperado:</b> <code>importe,card_brand,card_type,customer_region,category</code> (+ campos opcionales)</p>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <p class="mb-0"><b>Formato esperado:</b> <code>importe,card_brand,card_type,customer_region,product_category</code> (+ campos opcionales)</p>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="downloadSampleCSV()"><i class="bi bi-download me-1"></i>CSV de ejemplo</button>
+                </div>
                 <details class="mb-3">
                     <summary class="text-muted small">Ver ejemplo</summary>
-                    <pre class="brand-subtle p-2 rounded mb-0 mt-2" style="font-size:.8rem;">importe,card_brand,card_type,issuer_bank,customer_region,category,eci_code,num_items,previous_failed_attempts,session_duration_minutes,interaction_velocity
-120.50,visa,debit,bcp,lima,repuestos_moto,5,2,0,12.5,25.0
-999.90,mastercard,credit,bbva,arequipa,electronica,0,1,3,0.5,95.0</pre>
+                    <pre class="brand-subtle p-2 rounded mb-0 mt-2" style="font-size:.8rem;">importe,card_brand,card_type,issuer_bank,customer_region,product_category,eci_code,email_domain,bin
+120.50,visa,debito,bcp,lima,repuestos_moto,5,gmail.com,404700
+2850.00,visa,credito,bcp,lima,electronica,0,yopmail.com,400000</pre>
                 </details>
 
                 <form method="post" enctype="multipart/form-data"
@@ -329,6 +382,41 @@
         {% endif %}
     </div>
 </div>
+
+<script>
+function fillFraud(){
+    const f=document.getElementById('simForm');
+    f.importe.value=2850; f.discount_amount.value=0;
+    f.card_brand.value='visa'; f.card_type.value='credito';
+    f.issuer_bank.value='bcp'; f.payment_channel.value='pago web';
+    f.eci_code.value='0';
+    f.customer_region.value='lima'; f.product_category.value='electronica';
+    f.email_domain.value='yopmail.com'; f.num_items.value=1;
+    f.num_installments.value=0;
+    f.bin.value='400000';
+    f.wallet_yape.value='no'; f.wallet_plin.value='no';
+}
+function fillLegit(){
+    const f=document.getElementById('simForm');
+    f.importe.value=89.90; f.discount_amount.value=10;
+    f.card_brand.value='visa'; f.card_type.value='debito';
+    f.issuer_bank.value='bcp'; f.payment_channel.value='pago web';
+    f.eci_code.value='5';
+    f.customer_region.value='lima'; f.product_category.value='repuestos_moto';
+    f.email_domain.value='gmail.com'; f.num_items.value=2;
+    f.num_installments.value=0;
+    f.bin.value='404700';
+    f.wallet_yape.value='no'; f.wallet_plin.value='no';
+}
+function downloadSampleCSV(){
+    const hdr='importe,card_brand,card_type,issuer_bank,customer_region,product_category,eci_code,email_domain,bin';
+    const r1='89.90,visa,debito,bcp,lima,repuestos_moto,5,gmail.com,404700';
+    const r2='2850.00,visa,credito,bcp,lima,electronica,0,yopmail.com,400000';
+    const blob=new Blob([hdr+'\n'+r1+'\n'+r2],{type:'text/csv'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download='ejemplo_simulacion.csv'; a.click();
+}
+</script>
 
 <style>
     .gauge-wrap {

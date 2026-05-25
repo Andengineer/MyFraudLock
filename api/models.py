@@ -36,7 +36,7 @@ class Usuario(models.Model):
 
 
 class Transaccion(models.Model):
-    """Transacción financiera que alimenta el modelo de ML (Deep Learning)."""
+    """Transacción financiera que alimenta el modelo DAFD-Net (DNN multi-input)."""
 
     id_transaccion = models.AutoField(primary_key=True)
     importe = models.DecimalField(max_digits=12, decimal_places=2)
@@ -48,16 +48,16 @@ class Transaccion(models.Model):
         help_text='Marca: visa, mastercard, amex, diners, other'
     )
     card_type = models.CharField(
-        max_length=10, default='debit',
-        help_text='Tipo: credit, debit'
+        max_length=10, default='credito',
+        help_text='Tipo: credito, debito, unknown'
     )
     issuer_bank = models.CharField(
         max_length=30, default='bcp',
         help_text='Banco emisor peruano'
     )
     payment_channel = models.CharField(
-        max_length=15, default='web',
-        help_text='Canal: web, mobile, app'
+        max_length=20, default='pago web',
+        help_text='Canal: pago web, pago movil, app'
     )
     eci_code = models.PositiveSmallIntegerField(
         default=5,
@@ -67,31 +67,27 @@ class Transaccion(models.Model):
         default=0,
         help_text='Número de cuotas (0=contado)'
     )
+    bin = models.CharField(
+        max_length=10, default='404700', blank=True,
+        help_text='BIN de la tarjeta (primeros 6 dígitos)'
+    )
+    last_4_digits = models.CharField(
+        max_length=4, default='0000', blank=True,
+        help_text='Últimos 4 dígitos de la tarjeta'
+    )
 
     # ── Datos del cliente / ubicación ────────────────────────────────
     customer_region = models.CharField(
         max_length=30, default='lima',
         help_text='Región/departamento del cliente'
     )
-    city_population = models.PositiveIntegerField(
-        default=0,
-        help_text='Población de la ciudad del cliente'
-    )
-    is_new_customer = models.BooleanField(
-        default=True,
-        help_text='¿Es primera compra del cliente?'
-    )
-    days_since_first_purchase = models.PositiveIntegerField(
-        default=0,
-        help_text='Días desde la primera compra del cliente'
-    )
-    avg_historical_amount = models.DecimalField(
-        max_digits=12, decimal_places=2, default=0,
-        help_text='Monto promedio histórico del cliente'
+    email_domain = models.CharField(
+        max_length=50, default='gmail.com', blank=True,
+        help_text='Dominio del email del cliente'
     )
 
     # ── Datos del pedido ─────────────────────────────────────────────
-    category = models.CharField(
+    product_category = models.CharField(
         max_length=32, default='otros',
         help_text='Categoría del producto principal'
     )
@@ -99,23 +95,87 @@ class Transaccion(models.Model):
         default=1,
         help_text='Número de ítems en el pedido'
     )
-    has_discount = models.BooleanField(
-        default=False,
-        help_text='¿El pedido tiene descuento?'
+    discount_amount = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        help_text='Monto de descuento aplicado'
     )
-    previous_failed_attempts = models.PositiveSmallIntegerField(
-        default=0,
-        help_text='Intentos de pago fallidos previos a este'
+    currency = models.CharField(
+        max_length=5, default='PEN',
+        help_text='Moneda de la transacción'
     )
 
-    # ── Biometría Conductual y Telemetría ────────────────────────────
+    # ── Estado / Pasarela ────────────────────────────────────────────
+    transaction_status = models.CharField(
+        max_length=20, default='liquidada',
+        help_text='Estado: liquidada, denegada, abandonada'
+    )
+    action_code = models.PositiveSmallIntegerField(
+        default=6,
+        help_text='Código de acción de la pasarela de pago'
+    )
+    denial_reason = models.CharField(
+        max_length=100, default='unknown', blank=True,
+        help_text='Razón de denegación (si aplica)'
+    )
+
+    # ── Wallets digitales ────────────────────────────────────────────
+    wallet_yape = models.CharField(
+        max_length=3, default='no',
+        help_text='¿Usa Yape? si/no'
+    )
+    wallet_plin = models.CharField(
+        max_length=3, default='no',
+        help_text='¿Usa Plin? si/no'
+    )
+
+    # ── Ratios financieros (calculados por el sistema o provistos) ───
+    ratio_aar = models.DecimalField(
+        max_digits=8, decimal_places=4, default=1.0, blank=True,
+        help_text='Amount-to-Average Ratio'
+    )
+    ratio_cmr = models.DecimalField(
+        max_digits=8, decimal_places=4, default=1.0, blank=True,
+        help_text='Category Median Ratio'
+    )
+    ratio_asi = models.DecimalField(
+        max_digits=8, decimal_places=4, default=0.5, blank=True,
+        help_text='Authentication Strength Index'
+    )
+    ratio_vrr = models.DecimalField(
+        max_digits=8, decimal_places=4, default=1.0, blank=True,
+        help_text='Velocity Risk Ratio'
+    )
+    ratio_dar = models.DecimalField(
+        max_digits=8, decimal_places=4, default=0.0, blank=True,
+        help_text='Denial-to-Attempt Ratio'
+    )
+    ratio_csi = models.DecimalField(
+        max_digits=8, decimal_places=4, default=1.0, blank=True,
+        help_text='Card Sharing Index'
+    )
+    ratio_dpe = models.DecimalField(
+        max_digits=8, decimal_places=4, default=0.0, blank=True,
+        help_text='Denial Pattern Entropy'
+    )
+
+    # ── Campos legacy (deprecated — mantenidos para datos históricos) ─
+    category = models.CharField(
+        max_length=32, default='otros', blank=True,
+        help_text='DEPRECATED: usar product_category'
+    )
+    city_population = models.PositiveIntegerField(default=0, blank=True)
+    is_new_customer = models.BooleanField(default=True, blank=True)
+    days_since_first_purchase = models.PositiveIntegerField(default=0, blank=True)
+    avg_historical_amount = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0, blank=True
+    )
+    has_discount = models.BooleanField(default=False, blank=True)
+    previous_failed_attempts = models.PositiveSmallIntegerField(default=0, blank=True)
     session_duration_minutes = models.DecimalField(
-        max_digits=6, decimal_places=2, null=True, blank=True,
-        help_text='Duración de la sesión en el portal (minutos)'
+        max_digits=6, decimal_places=2, null=True, blank=True
     )
     interaction_velocity = models.DecimalField(
-        max_digits=6, decimal_places=2, null=True, blank=True,
-        help_text='Velocidad de interacción'
+        max_digits=6, decimal_places=2, null=True, blank=True
     )
     device_telemetry_1 = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
     device_telemetry_2 = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)

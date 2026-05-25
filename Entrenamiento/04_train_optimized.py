@@ -35,7 +35,7 @@ import optuna
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.preprocessing import StandardScaler, OneHotEncoder, OrdinalEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline as SKPipeline
 from sklearn.metrics import (
@@ -43,14 +43,15 @@ from sklearn.metrics import (
     recall_score, confusion_matrix, matthews_corrcoef,
     roc_curve, precision_recall_curve
 )
-from imblearn.over_sampling import SMOTE, ADASYN
+from imblearn.over_sampling import SMOTE, ADASYN, SMOTENC
 from imblearn.combine import SMOTETomek
-from joblib import dump, load
+from imblearn.under_sampling import TomekLinks
+from joblib import dump
 import xgboost as xgb
 
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.keras import layers, Model, Sequential
+from tensorflow.keras import layers, Model
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 
 # ─── Config ───────────────────────────────────────────────────────────
@@ -73,30 +74,47 @@ plt.rcParams.update({
     "axes.grid": True, "grid.alpha": 0.3,
 })
 
-OPTUNA_TRIALS = 20  # Número de trials por modelo
+OPTUNA_TRIALS = 15  # Trials per model (uniform across baselines)
+# Per-model trial budget (15 for all by default — adjust here if compute-constrained)
+OPTUNA_TRIALS_PER_MODEL = {
+    "DNN":             15,
+    "CNN_1D":          15,
+    "RNN_GRU":         15,
+    "AutoEncoder_Clf": 15,
+    "XGBoost":         15,
+}
 
 # ═══════════════════════════════════════════════════════════════════════
 # FEATURES & LABELS
 # ═══════════════════════════════════════════════════════════════════════
 NUMERIC_FEATURES = [
-    "transaction_amount", "amt_log1p", "hour", "day_of_week", "month",
-    "is_weekend", "eci_code", "has_3ds", "city_population", "num_items",
-    "has_discount", "num_installments", "previous_failed_attempts",
-    "is_new_customer", "days_since_first_purchase", "avg_historical_amount",
-    "is_high_risk_hour", "amount_deviation",
-    "hour_sin", "hour_cos", "day_sin", "day_cos", "month_sin", "month_cos",
-    # Non-linear interaction features (ventaja DNN sobre árboles)
-    "amt_hour_interaction", "amt_fail_interaction", "risk_score_smooth",
-    "amt_pop_sigmoid", "customer_maturity", "night_newcust_score",
-    "session_duration_minutes", "interaction_velocity",
-    "device_telemetry_1", "device_telemetry_2", "device_telemetry_3",
-    "device_telemetry_4", "device_telemetry_5",
+    # Raw transactional fields
+    "transaction_amount", "discount_amount",
+    "tx_hour", "tx_day_of_week", "tx_month",
+    "eci", "action_code", "num_installments", "num_items",
+    # 7 transactional ratios from §3.C.2 (4 Vasquez-analog + 3 novel)
+    "AAR", "CMR", "ASI", "VRR", "DAR", "CSI", "DPE",
 ]
-CATEGORICAL_FEATURES = [
-    "card_brand", "card_type", "issuer_bank", "payment_channel",
-    "customer_region", "category",
+# Categoricals: low-cardinality use OHE (all models), high-cardinality use
+# embeddings (DNN only; baselines use OHE for fair comparison).
+OHE_CATEGORICAL_FEATURES = [
+    "card_brand", "card_type", "currency",
+    "transaction_status", "payment_channel",
+    "wallet_yape", "wallet_plin",
+    "product_category",
 ]
-TARGET = "is_fraud"
+EMBED_CATEGORICAL_FEATURES = {
+    "issuer_bank":     6,
+    "customer_region": 6,
+    "email_domain":    5,
+    "denial_reason":   5,
+    "bin":             8,
+}
+EMBED_COLS = list(EMBED_CATEGORICAL_FEATURES.keys())
+CATEGORICAL_FEATURES = OHE_CATEGORICAL_FEATURES + EMBED_COLS
+
+TARGET = "is_fraud_ground_truth"
+HEURISTIC_BASELINE_COL = "heuristic_label"
 
 MODEL_COLORS = {
     "DNN": "#3498db", "CNN_1D": "#e74c3c", "RNN_GRU": "#2ecc71",
@@ -115,15 +133,55 @@ BALANCE_LABELS = {
 # 1. CARGA
 # ═══════════════════════════════════════════════════════════════════════
 
+def apply_balancing_dnn_emb(X_dense, X_ord, y, method):
+    """SMOTENC-based balancing for DAFD-Net multi-input (preserves valid
+    ordinal indices required by Embedding layers).
+
+    - baseline:    pass-through
+    - smote_tomek: SMOTENC + TomekLinks cleanup
+    - adasyn:      SMOTENC with denser sampling_strategy (ADASYN has no NC variant)
+    """
+    if method == "baseline":
+        return X_dense, X_ord, y
+
+    n_dense = X_dense.shape[1]
+    n_ord   = X_ord.shape[1]
+    X_combined = np.hstack([X_dense, X_ord.astype(np.float64)])
+    cat_indices = list(range(n_dense, n_dense + n_ord))
+
+    print(f"\n  [DNN-Emb] Aplicando SMOTENC ({BALANCE_LABELS[method]})...")
+    if method == "smote_tomek":
+        smote_nc = SMOTENC(categorical_features=cat_indices,
+                            random_state=SEED, sampling_strategy=0.4, k_neighbors=5)
+        X_bal, y_bal = smote_nc.fit_resample(X_combined, y)
+        tomek = TomekLinks(sampling_strategy="majority")
+        X_bal, y_bal = tomek.fit_resample(X_bal, y_bal)
+    elif method == "adasyn":
+        smote_nc = SMOTENC(categorical_features=cat_indices,
+                            random_state=SEED, sampling_strategy=0.5, k_neighbors=5)
+        X_bal, y_bal = smote_nc.fit_resample(X_combined, y)
+    else:
+        raise ValueError(f"Método desconocido: {method}")
+
+    X_dense_bal = X_bal[:, :n_dense]
+    X_ord_bal   = np.round(X_bal[:, n_dense:]).astype(np.int64)
+    for j in range(n_ord):
+        max_val = X_ord[:, j].max()
+        X_ord_bal[:, j] = np.clip(X_ord_bal[:, j], 0, max_val)
+    return X_dense_bal, X_ord_bal, y_bal
+
+
 def load_and_prepare(best_balance):
-    """Carga datos, preprocesa y aplica el mejor balanceo."""
+    """Carga datos, preprocesa con dual representation (OHE para baselines +
+    Ordinal para DNN embeddings) y aplica el mejor balanceo."""
     print("\n[1] CARGA Y PREPROCESAMIENTO")
     print("-" * 50)
 
-    df = pd.read_csv(DATA_DIR / "fraud_ecommerce_dataset.csv")
+    df = pd.read_csv(DATA_DIR / "fraud_ecommerce_dataset_processed.csv")
     X = df[NUMERIC_FEATURES + CATEGORICAL_FEATURES].copy()
     y = df[TARGET].values
 
+    # Full OHE for non-DNN baselines (CNN, RNN, AE, XGBoost)
     preprocessor = ColumnTransformer(
         transformers=[
             ("num", SKPipeline([("scaler", StandardScaler())]), NUMERIC_FEATURES),
@@ -132,6 +190,19 @@ def load_and_prepare(best_balance):
             ))]), CATEGORICAL_FEATURES),
         ],
         remainder="drop"
+    )
+    # DNN dense stream: numerics + OHE of LOW-card cats
+    dnn_dense_preprocessor = ColumnTransformer(
+        transformers=[
+            ("num", SKPipeline([("scaler", StandardScaler())]), NUMERIC_FEATURES),
+            ("ohe_low", SKPipeline([("onehot", OneHotEncoder(
+                handle_unknown="ignore", sparse_output=False
+            ))]), OHE_CATEGORICAL_FEATURES),
+        ],
+        remainder="drop"
+    )
+    dnn_ordinal_encoder = OrdinalEncoder(
+        handle_unknown="use_encoded_value", unknown_value=-1
     )
 
     X_temp, X_test, y_temp, y_test = train_test_split(
@@ -145,6 +216,18 @@ def load_and_prepare(best_balance):
     X_val_proc   = preprocessor.transform(X_val)
     X_test_proc  = preprocessor.transform(X_test)
 
+    # DNN-Embedding matrices
+    X_train_dense = dnn_dense_preprocessor.fit_transform(X_train)
+    X_val_dense   = dnn_dense_preprocessor.transform(X_val)
+    X_test_dense  = dnn_dense_preprocessor.transform(X_test)
+    X_train_ord = dnn_ordinal_encoder.fit_transform(X_train[EMBED_COLS]).astype(np.int64)
+    X_val_ord   = dnn_ordinal_encoder.transform(X_val[EMBED_COLS]).astype(np.int64)
+    X_test_ord  = dnn_ordinal_encoder.transform(X_test[EMBED_COLS]).astype(np.int64)
+    cardinalities = [int(X_train_ord[:, j].max()) + 2 for j in range(len(EMBED_COLS))]
+    X_train_ord = X_train_ord + 1
+    X_val_ord   = np.clip(X_val_ord + 1, 0, None)
+    X_test_ord  = np.clip(X_test_ord + 1, 0, None)
+
     num_names = NUMERIC_FEATURES
     cat_names = list(preprocessor.named_transformers_["cat"]
                      .named_steps["onehot"]
@@ -152,28 +235,62 @@ def load_and_prepare(best_balance):
     feature_names = num_names + cat_names
 
     dump(preprocessor, MODEL_DIR / "preprocessor.joblib")
+    dump(dnn_dense_preprocessor, MODEL_DIR / "dnn_dense_preprocessor.joblib")
+    dump(dnn_ordinal_encoder, MODEL_DIR / "dnn_ordinal_encoder.joblib")
     with open(MODEL_DIR / "feature_names.json", "w") as f:
         json.dump(feature_names, f, indent=2)
+    with open(MODEL_DIR / "dnn_embedding_spec.json", "w") as f:
+        json.dump({
+            "embed_cols": EMBED_COLS,
+            "embed_dims": list(EMBED_CATEGORICAL_FEATURES.values()),
+            "cardinalities": cardinalities,
+        }, f, indent=2)
 
-    # Apply best balance
-    print(f"  Aplicando balanceo ganador: {BALANCE_LABELS[best_balance]}")
-    if best_balance == "baseline":
-        X_train_bal, y_train_bal = X_train_proc, y_train
-    elif best_balance == "smote_tomek":
-        st = SMOTETomek(
-            smote=SMOTE(random_state=SEED, sampling_strategy=0.4),
-            random_state=SEED
-        )
-        X_train_bal, y_train_bal = st.fit_resample(X_train_proc, y_train)
-    elif best_balance == "adasyn":
-        ada = ADASYN(random_state=SEED, sampling_strategy=0.4)
-        X_train_bal, y_train_bal = ada.fit_resample(X_train_proc, y_train)
+    # ── Precompute ALL 3 balance variants (per-model lookup in training) ──
+    def _apply_balance_ohe(method):
+        if method == "baseline":
+            return X_train_proc, y_train
+        elif method == "smote_tomek":
+            st = SMOTETomek(smote=SMOTE(random_state=SEED, sampling_strategy=0.4),
+                             random_state=SEED)
+            return st.fit_resample(X_train_proc, y_train)
+        elif method == "adasyn":
+            return ADASYN(random_state=SEED, sampling_strategy=0.4).fit_resample(
+                X_train_proc, y_train)
 
-    print(f"  Train: {len(X_train_bal):,} | Val: {len(X_val_proc):,} | Test: {len(X_test_proc):,}")
+    balanced_ohe = {}
+    balanced_dnn = {}
+    for method in ["baseline", "smote_tomek", "adasyn"]:
+        Xb, yb = _apply_balance_ohe(method)
+        balanced_ohe[method] = (Xb, yb)
+        Xd, Xo, yd = apply_balancing_dnn_emb(X_train_dense, X_train_ord, y_train, method)
+        balanced_dnn[method] = (Xd, Xo, yd)
+        print(f"  Balance '{method}': OHE {Xb.shape[0]:,} rows | DNN-Emb {Xd.shape[0]:,} rows")
+
+    # Globally-best balance (used as the fallback / overall winner reference)
+    X_train_bal, y_train_bal = balanced_ohe[best_balance]
+    X_train_dense_bal, X_train_ord_bal, y_train_bal_dnn = balanced_dnn[best_balance]
+
+    print(f"  Train (global best): {len(X_train_bal):,} | Val: {len(X_val_proc):,} | Test: {len(X_test_proc):,}")
     print(f"  Features: {len(feature_names)}")
+    print(f"  DNN-Emb dense_dim={X_train_dense.shape[1]} | cardinalities={cardinalities}")
 
+    dnn_data = {
+        "X_train_dense":     X_train_dense_bal,
+        "X_val_dense":       X_val_dense,
+        "X_test_dense":      X_test_dense,
+        "X_train_ord":       X_train_ord_bal,
+        "X_val_ord":         X_val_ord,
+        "X_test_ord":        X_test_ord,
+        "cardinalities":     cardinalities,
+        "dense_dim":         X_train_dense.shape[1],
+        "y_train":           y_train_bal_dnn,
+        # Per-method variants for per-model balance lookup
+        "balanced_dnn":      balanced_dnn,
+    }
     return (X_train_bal, y_train_bal, X_val_proc, y_val,
-            X_test_proc, y_test, feature_names, preprocessor)
+            X_test_proc, y_test, feature_names, preprocessor, dnn_data,
+            balanced_ohe)
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -201,22 +318,58 @@ def compute_metrics(y_test, y_proba, y_pred):
 # 3. BUILDERS DEFAULT
 # ═══════════════════════════════════════════════════════════════════════
 
-def build_dnn_default(input_dim):
-    return Sequential([
-        layers.Input(shape=(input_dim,)),
-        layers.Dense(256, activation="relu"),
-        layers.BatchNormalization(),
-        layers.Dropout(0.35),
-        layers.Dense(128, activation="relu"),
-        layers.BatchNormalization(),
-        layers.Dropout(0.3),
-        layers.Dense(64, activation="relu"),
-        layers.BatchNormalization(),
-        layers.Dropout(0.25),
-        layers.Dense(32, activation="relu"),
-        layers.Dropout(0.2),
-        layers.Dense(1, activation="sigmoid"),
-    ], name="DNN")
+def _residual_block(x, units, dropout_rate=0.25):
+    shortcut = x
+    h = layers.Dense(units, activation="relu")(x)
+    h = layers.BatchNormalization()(h)
+    h = layers.Dropout(dropout_rate)(h)
+    h = layers.Dense(units, activation="relu")(h)
+    h = layers.BatchNormalization()(h)
+    if shortcut.shape[-1] != units:
+        shortcut = layers.Dense(units, activation="linear")(shortcut)
+    out = layers.Add()([shortcut, h])
+    return layers.Activation("relu")(out)
+
+
+def _se_block(x, ratio=4):
+    units = x.shape[-1]
+    se = layers.Dense(units // ratio, activation="relu")(x)
+    se = layers.Dense(units, activation="sigmoid")(se)
+    return layers.Multiply()([x, se])
+
+
+def build_dnn_default(dense_dim, cardinalities=None, embed_dims=None, embed_cols=None):
+    """DAFD-Net default: ResNet+SE+Embeddings (Camino B). When cardinalities
+    is None, falls back to the legacy single-input architecture."""
+    if cardinalities is None or not cardinalities:
+        inp = layers.Input(shape=(dense_dim,))
+        x = layers.Dense(384, activation="relu")(inp)
+        x = layers.BatchNormalization()(x)
+        x = layers.Dropout(0.3)(x)
+        x = _residual_block(x, 256, dropout_rate=0.30); x = _se_block(x)
+        x = _residual_block(x, 128, dropout_rate=0.25); x = _se_block(x)
+        x = _residual_block(x, 64,  dropout_rate=0.20)
+        x = layers.Dense(32, activation="relu")(x); x = layers.Dropout(0.15)(x)
+        out = layers.Dense(1, activation="sigmoid")(x)
+        return Model(inp, out, name="DNN")
+
+    num_input = layers.Input(shape=(dense_dim,), name="dense_in")
+    cat_inputs, cat_embeds = [], []
+    for col, cardinality, dim in zip(embed_cols, cardinalities, embed_dims):
+        ci = layers.Input(shape=(1,), name=f"cat_{col}", dtype="int32")
+        ce = layers.Embedding(cardinality, dim, name=f"emb_{col}")(ci)
+        ce = layers.Flatten(name=f"flat_{col}")(ce)
+        cat_inputs.append(ci); cat_embeds.append(ce)
+    x = layers.Concatenate(name="fusion")([num_input] + cat_embeds)
+    x = layers.Dense(384, activation="relu")(x)
+    x = layers.BatchNormalization()(x)
+    x = layers.Dropout(0.3)(x)
+    x = _residual_block(x, 256, dropout_rate=0.30); x = _se_block(x)
+    x = _residual_block(x, 128, dropout_rate=0.25); x = _se_block(x)
+    x = _residual_block(x, 64,  dropout_rate=0.20)
+    x = layers.Dense(32, activation="relu")(x); x = layers.Dropout(0.15)(x)
+    out = layers.Dense(1, activation="sigmoid")(x)
+    return Model([num_input] + cat_inputs, out, name="DNN")
 
 def build_cnn_default(input_dim):
     inp = layers.Input(shape=(input_dim,))
@@ -285,42 +438,58 @@ DEFAULT_BUILDERS = OrderedDict([
 # 4. ENTRENAMIENTO
 # ═══════════════════════════════════════════════════════════════════════
 
-def train_keras(model, X_train, y_train, X_val, y_val, name,
-                lr=0.001, batch_size=256):
-    
-    if name == "DNN":
-        epochs = 150
-        patience = 20
-        lr_patience = 8
-    else:
-        epochs = 15
-        patience = 3
-        lr_patience = 2
+# Equal wall-clock budget across DL models (defensible against reviewers)
+MAX_WALLCLOCK_SECONDS_DEFAULT = 600     # per default-model training
+MAX_WALLCLOCK_SECONDS_TRIAL = 90        # per Optuna trial
+PATIENCE_EPOCHS = 15
+LR_PATIENCE_EPOCHS = 6
+MAX_EPOCHS_HARD_CAP = 200
 
+
+class WallClockBudget(keras.callbacks.Callback):
+    """Stops training when elapsed wall-clock time exceeds the budget."""
+    def __init__(self, budget_seconds: float):
+        super().__init__()
+        self.budget = budget_seconds
+        self._start = None
+
+    def on_train_begin(self, logs=None):
+        self._start = time.time()
+
+    def on_epoch_end(self, epoch, logs=None):
+        if (time.time() - self._start) > self.budget:
+            self.model.stop_training = True
+
+
+def train_keras(model, X_train, y_train, X_val, y_val, name,
+                lr=0.001, batch_size=256,
+                wallclock_budget=MAX_WALLCLOCK_SECONDS_DEFAULT):
+    """Trains a Keras model with equal wall-clock budget across models."""
     model.compile(
         optimizer=keras.optimizers.Adam(learning_rate=lr),
         loss="binary_crossentropy",
-        metrics=[keras.metrics.AUC(name="auc")]
+        metrics=[keras.metrics.AUC(name="auc")],
     )
-    
+
     callbacks = [
-        EarlyStopping(monitor="val_auc", patience=patience,
+        EarlyStopping(monitor="val_auc", patience=PATIENCE_EPOCHS,
                       restore_best_weights=True, mode="max"),
         ReduceLROnPlateau(monitor="val_loss", factor=0.5,
-                          patience=lr_patience, min_lr=1e-6),
+                          patience=LR_PATIENCE_EPOCHS, min_lr=1e-6),
+        WallClockBudget(wallclock_budget),
     ]
     start = time.time()
     history = model.fit(
         X_train, y_train,
         validation_data=(X_val, y_val),
-        epochs=epochs,
+        epochs=MAX_EPOCHS_HARD_CAP,
         batch_size=batch_size,
         callbacks=callbacks,
-        verbose=1 if name == "DNN" else 0
+        verbose=0,
     )
     train_time = time.time() - start
-    best_ep = np.argmax(history.history.get("val_auc", [0]))
-    print(f"    ✓ {name}: {train_time:.1f}s ({best_ep+1} ep)")
+    best_ep = int(np.argmax(history.history.get("val_auc", [0])))
+    print(f"    ✓ {name}: {train_time:.1f}s ({len(history.history.get('loss', []))} ep, best @ {best_ep+1})")
     return model, history, train_time
 
 
@@ -348,36 +517,54 @@ def evaluate(model, X_test, y_test, is_xgb=False):
 # 5. OPTUNA OBJECTIVES
 # ═══════════════════════════════════════════════════════════════════════
 
-def make_dnn_objective(input_dim, X_train, y_train, X_val, y_val):
+def make_dnn_objective(dense_dim, X_train_inputs, y_train, X_val_inputs, y_val,
+                        cardinalities, embed_cols):
+    """Optuna objective for DAFD-Net with categorical embeddings.
+
+    X_train_inputs / X_val_inputs are LISTS: [dense, cat_col_1, cat_col_2, ...]
+    Optuna tunes layer widths, dropout, learning rate, batch size, and the
+    per-column embedding dimension scale factor.
+    """
     def objective(trial):
-        units_1 = trial.suggest_categorical("units_1", [128, 256, 512])
-        units_2 = trial.suggest_categorical("units_2", [64, 128, 256])
-        units_3 = trial.suggest_categorical("units_3", [32, 64, 128])
+        units_1 = trial.suggest_categorical("units_1", [256, 384, 512])
+        units_2 = trial.suggest_categorical("units_2", [128, 192, 256])
+        units_3 = trial.suggest_categorical("units_3", [64, 96, 128])
         dropout = trial.suggest_float("dropout", 0.15, 0.45, step=0.05)
         lr = trial.suggest_float("lr", 1e-4, 5e-3, log=True)
         batch_size = trial.suggest_categorical("batch_size", [128, 256, 512])
+        emb_scale = trial.suggest_categorical("emb_scale", [0.75, 1.0, 1.25, 1.5])
 
-        model = Sequential([
-            layers.Input(shape=(input_dim,)),
-            layers.Dense(units_1, activation="relu"),
-            layers.BatchNormalization(), layers.Dropout(dropout),
-            layers.Dense(units_2, activation="relu"),
-            layers.BatchNormalization(), layers.Dropout(dropout * 0.85),
-            layers.Dense(units_3, activation="relu"),
-            layers.BatchNormalization(), layers.Dropout(dropout * 0.7),
-            layers.Dense(32, activation="relu"), layers.Dropout(0.15),
-            layers.Dense(1, activation="sigmoid"),
-        ], name="DNN")
+        # Per-column embedding dims (scaled around the configured defaults)
+        base_dims = list(EMBED_CATEGORICAL_FEATURES.values())
+        trial_dims = [max(2, int(round(d * emb_scale))) for d in base_dims]
+
+        # Build DAFD-Net with embeddings
+        num_input = layers.Input(shape=(dense_dim,), name="dense_in")
+        cat_inputs, cat_embeds = [], []
+        for col, card, dim in zip(embed_cols, cardinalities, trial_dims):
+            ci = layers.Input(shape=(1,), name=f"cat_{col}", dtype="int32")
+            ce = layers.Embedding(card, dim, name=f"emb_{col}")(ci)
+            ce = layers.Flatten(name=f"flat_{col}")(ce)
+            cat_inputs.append(ci); cat_embeds.append(ce)
+        x = layers.Concatenate(name="fusion")([num_input] + cat_embeds)
+        x = layers.Dense(units_1, activation="relu")(x)
+        x = layers.BatchNormalization()(x); x = layers.Dropout(dropout)(x)
+        x = _residual_block(x, units_2, dropout_rate=dropout * 0.85); x = _se_block(x)
+        x = _residual_block(x, units_3, dropout_rate=dropout * 0.7);  x = _se_block(x)
+        x = layers.Dense(32, activation="relu")(x); x = layers.Dropout(0.15)(x)
+        out = layers.Dense(1, activation="sigmoid")(x)
+        model = Model([num_input] + cat_inputs, out, name="DNN")
 
         model.compile(optimizer=keras.optimizers.Adam(lr),
                       loss="binary_crossentropy",
                       metrics=[keras.metrics.AUC(name="auc")])
-        model.fit(X_train, y_train, validation_data=(X_val, y_val),
-                  epochs=80, batch_size=batch_size,
-                  callbacks=[EarlyStopping(monitor="val_auc", patience=12,
-                                           restore_best_weights=True, mode="max")],
+        model.fit(X_train_inputs, y_train, validation_data=(X_val_inputs, y_val),
+                  epochs=MAX_EPOCHS_HARD_CAP, batch_size=batch_size,
+                  callbacks=[EarlyStopping(monitor="val_auc", patience=PATIENCE_EPOCHS,
+                                           restore_best_weights=True, mode="max"),
+                             WallClockBudget(MAX_WALLCLOCK_SECONDS_TRIAL)],
                   verbose=0)
-        y_proba = model.predict(X_val, verbose=0).ravel()
+        y_proba = model.predict(X_val_inputs, verbose=0).ravel()
         y_pred = (y_proba >= 0.5).astype(int)
         return f1_score(y_val, y_pred)
     return objective
@@ -408,9 +595,10 @@ def make_cnn_objective(input_dim, X_train, y_train, X_val, y_val):
                       loss="binary_crossentropy",
                       metrics=[keras.metrics.AUC(name="auc")])
         model.fit(X_train, y_train, validation_data=(X_val, y_val),
-                  epochs=10, batch_size=batch_size,
-                  callbacks=[EarlyStopping(monitor="val_auc", patience=3,
-                                           restore_best_weights=True, mode="max")],
+                  epochs=MAX_EPOCHS_HARD_CAP, batch_size=batch_size,
+                  callbacks=[EarlyStopping(monitor="val_auc", patience=PATIENCE_EPOCHS,
+                                           restore_best_weights=True, mode="max"),
+                             WallClockBudget(MAX_WALLCLOCK_SECONDS_TRIAL)],
                   verbose=0)
         y_proba = model.predict(X_val, verbose=0).ravel()
         y_pred = (y_proba >= 0.5).astype(int)
@@ -442,9 +630,10 @@ def make_gru_objective(input_dim, X_train, y_train, X_val, y_val):
                       loss="binary_crossentropy",
                       metrics=[keras.metrics.AUC(name="auc")])
         model.fit(X_train, y_train, validation_data=(X_val, y_val),
-                  epochs=10, batch_size=batch_size,
-                  callbacks=[EarlyStopping(monitor="val_auc", patience=3,
-                                           restore_best_weights=True, mode="max")],
+                  epochs=MAX_EPOCHS_HARD_CAP, batch_size=batch_size,
+                  callbacks=[EarlyStopping(monitor="val_auc", patience=PATIENCE_EPOCHS,
+                                           restore_best_weights=True, mode="max"),
+                             WallClockBudget(MAX_WALLCLOCK_SECONDS_TRIAL)],
                   verbose=0)
         y_proba = model.predict(X_val, verbose=0).ravel()
         y_pred = (y_proba >= 0.5).astype(int)
@@ -477,9 +666,10 @@ def make_ae_objective(input_dim, X_train, y_train, X_val, y_val):
                       loss="binary_crossentropy",
                       metrics=[keras.metrics.AUC(name="auc")])
         model.fit(X_train, y_train, validation_data=(X_val, y_val),
-                  epochs=10, batch_size=batch_size,
-                  callbacks=[EarlyStopping(monitor="val_auc", patience=3,
-                                           restore_best_weights=True, mode="max")],
+                  epochs=MAX_EPOCHS_HARD_CAP, batch_size=batch_size,
+                  callbacks=[EarlyStopping(monitor="val_auc", patience=PATIENCE_EPOCHS,
+                                           restore_best_weights=True, mode="max"),
+                             WallClockBudget(MAX_WALLCLOCK_SECONDS_TRIAL)],
                   verbose=0)
         y_proba = model.predict(X_val, verbose=0).ravel()
         y_pred = (y_proba >= 0.5).astype(int)
@@ -767,6 +957,72 @@ def run_shap(model, model_name, X_test, feature_names, is_xgb=False):
     return sv
 
 
+def run_shap_dnn_emb(model, dnn_test_inputs, embed_cols, dnn_data, n_samples=150):
+    """SHAP for DAFD-Net with embeddings using KernelExplainer.
+
+    Concatenates the dense stream and ordinal categoricals into a flat
+    matrix, then defines a predict-fn that splits and feeds the multi-input
+    model. KernelExplainer is slower than DeepExplainer but supports any
+    multi-input model.
+    """
+    print("\n[SHAP] Analizando DAFD-Net (Embeddings) via KernelExplainer...")
+    import shap
+
+    test_dense = dnn_test_inputs[0].astype(np.float32)
+    test_ords  = np.hstack(dnn_test_inputs[1:]).astype(np.float32)
+    flat_test  = np.hstack([test_dense, test_ords]).astype(np.float32)
+    dense_dim  = test_dense.shape[1]
+    n_ord_cols = test_ords.shape[1]
+
+    def predict_fn(X_flat):
+        dense_part = X_flat[:, :dense_dim].astype(np.float32)
+        ord_parts  = [X_flat[:, dense_dim + j:dense_dim + j + 1].astype(np.int32)
+                       for j in range(n_ord_cols)]
+        return model.predict([dense_part] + ord_parts, verbose=0).ravel()
+
+    rng = np.random.default_rng(SEED)
+    bg_idx = rng.choice(flat_test.shape[0], min(50, flat_test.shape[0]), replace=False)
+    background = flat_test[bg_idx]
+    np.save(MODEL_DIR / "background.npy", background)
+
+    sample_idx = rng.choice(flat_test.shape[0],
+                             min(n_samples, flat_test.shape[0]), replace=False)
+    sample = flat_test[sample_idx]
+
+    explainer = shap.KernelExplainer(predict_fn, background)
+    sv = explainer.shap_values(sample, nsamples=50)
+    if isinstance(sv, list):
+        sv = sv[0]
+    sv = np.squeeze(sv)
+
+    short_names = [f"dense_{i}" for i in range(dense_dim)] + list(embed_cols)
+    fig, ax = plt.subplots(figsize=(10, 8))
+    mean_abs = np.abs(sv).mean(axis=0)
+    top_k = min(20, len(mean_abs))
+    top_idx = np.argsort(mean_abs)[-top_k:]
+    sorted_idx = top_idx[np.argsort(mean_abs[top_idx])]
+    ax.barh(range(top_k), mean_abs[sorted_idx],
+            color=sns.color_palette("YlOrRd", top_k), edgecolor="white")
+    ax.set_yticks(range(top_k))
+    ax.set_yticklabels([short_names[i] if i < len(short_names) else f"f_{i}"
+                         for i in sorted_idx], fontsize=9)
+    ax.set_xlabel("Importancia SHAP Promedio (|SHAP value|)")
+    ax.set_title("Importancia SHAP — DAFD-Net con Embeddings (KernelExplainer)",
+                  fontweight="bold")
+    plt.tight_layout()
+    fig.savefig(XAI_DIR / "01_shap_importancia.png", bbox_inches="tight")
+    plt.close()
+
+    # Group map for embeddings
+    group_map = {"dense_stream": [f"dense_{i}" for i in range(dense_dim)],
+                  "embeddings": list(embed_cols)}
+    with open(MODEL_DIR / "group_map.json", "w") as f:
+        json.dump(group_map, f, indent=2)
+
+    print(f"  ✓ SHAP DNN-Emb: {sample.shape[0]} samples × {flat_test.shape[1]} features")
+    return sv
+
+
 # ═══════════════════════════════════════════════════════════════════════
 # MAIN
 # ═══════════════════════════════════════════════════════════════════════
@@ -788,61 +1044,132 @@ def main():
         phase1 = json.load(f)
 
     best_balance = phase1["best_balance"]
-    print(f"\n  Mejor balanceo de Fase 1: {BALANCE_LABELS[best_balance]}")
+    # NEW: per-model best balance — each model trains with its own optimal balancing
+    best_balance_per_model = phase1.get("best_balance_per_model", {
+        m: best_balance for m in DEFAULT_BUILDERS
+    })
+    print(f"\n  Mejor balanceo global de Fase 1: {BALANCE_LABELS[best_balance]}")
+    print(f"  Per-model best balance:")
+    for m, b in best_balance_per_model.items():
+        print(f"    {MODEL_LABELS.get(m, m):14s} → {BALANCE_LABELS.get(b, b)}")
 
-    # Load & prepare data
+    # Load & prepare data (returns balanced variants for ALL 3 methods)
     (X_train, y_train, X_val, y_val,
-     X_test, y_test, feature_names, preprocessor) = load_and_prepare(best_balance)
+     X_test, y_test, feature_names, preprocessor, dnn_data,
+     balanced_ohe) = load_and_prepare(best_balance)
     input_dim = X_train.shape[1]
+
+    # DNN val/test inputs are unbalanced (we only balance the training set)
+    def _dnn_inputs(dense_arr, ord_arr):
+        return [dense_arr] + [ord_arr[:, j:j+1] for j in range(ord_arr.shape[1])]
+    dnn_val_inputs   = _dnn_inputs(dnn_data["X_val_dense"],   dnn_data["X_val_ord"])
+    dnn_test_inputs  = _dnn_inputs(dnn_data["X_test_dense"],  dnn_data["X_test_ord"])
+    embed_dims_default = list(EMBED_CATEGORICAL_FEATURES.values())
+
+    def _get_train_data_for_model(model_name):
+        """Returns the (X_train, y_train) balanced for this model's preferred method."""
+        bal = best_balance_per_model.get(model_name, best_balance)
+        if model_name == "DNN":
+            Xd, Xo, yb = dnn_data["balanced_dnn"][bal]
+            return _dnn_inputs(Xd, Xo), yb, bal
+        else:
+            Xb, yb = balanced_ohe[bal]
+            return Xb, yb, bal
 
     # ─── FASE DEFAULT ─────────────────────────────────────────────
     print("\n" + "=" * 70)
-    print("[A] ENTRENAMIENTO CON HIPERPARÁMETROS DEFAULT")
+    print("[A] ENTRENAMIENTO CON HIPERPARÁMETROS DEFAULT (per-model balance)")
     print("=" * 70)
 
     default_results = OrderedDict()
     for name, builder in DEFAULT_BUILDERS.items():
         is_xgb = (name == "XGBoost")
-        model = builder(input_dim)
+        is_dnn = (name == "DNN")
+        Xtr, ytr, bal_used = _get_train_data_for_model(name)
+        print(f"\n  {MODEL_LABELS[name]} [balance={BALANCE_LABELS.get(bal_used, bal_used)}]")
+
         if is_xgb:
-            model, hist, t_time = train_xgb(model, X_train, y_train, X_val, y_val, name)
+            model = builder(input_dim)
+            model, hist, t_time = train_xgb(model, Xtr, ytr, X_val, y_val, name)
+            metrics, y_proba, y_pred = evaluate(model, X_test, y_test, is_xgb=True)
+        elif is_dnn:
+            model = build_dnn_default(
+                dnn_data["dense_dim"],
+                cardinalities=dnn_data["cardinalities"],
+                embed_dims=embed_dims_default,
+                embed_cols=EMBED_COLS,
+            )
+            model, hist, t_time = train_keras(
+                model, Xtr, ytr, dnn_val_inputs, y_val, name
+            )
+            metrics, y_proba, y_pred = evaluate(model, dnn_test_inputs, y_test, is_xgb=False)
         else:
-            model, hist, t_time = train_keras(model, X_train, y_train, X_val, y_val, name)
-        metrics, y_proba, y_pred = evaluate(model, X_test, y_test, is_xgb)
+            model = builder(input_dim)
+            model, hist, t_time = train_keras(model, Xtr, ytr, X_val, y_val, name)
+            metrics, y_proba, y_pred = evaluate(model, X_test, y_test, is_xgb=False)
         default_results[name] = {
             "model": model, "metrics": metrics,
             "y_proba": y_proba, "y_pred": y_pred,
-            "train_time": t_time,
+            "train_time": t_time, "balance_used": bal_used,
         }
-        print(f"    AUC-ROC={metrics['auc_roc']:.4f} | Recall={metrics['recall']:.4f}")
+        print(f"    AUC-ROC={metrics['auc_roc']:.4f} | Recall={metrics['recall']:.4f} | F1={metrics['f1']:.4f}")
         gc.collect()
 
     # ─── FASE OPTUNA ──────────────────────────────────────────────
     print("\n" + "=" * 70)
-    print(f"[B] OPTIMIZACIÓN CON OPTUNA ({OPTUNA_TRIALS} trials/modelo)")
+    print(f"[B] OPTIMIZACIÓN CON OPTUNA (trials por modelo: {OPTUNA_TRIALS_PER_MODEL})")
     print("=" * 70)
 
     optimized_results = OrderedDict()
     for name in DEFAULT_BUILDERS:
-        print(f"\n  Optimizando {MODEL_LABELS[name]}...")
+        n_trials = OPTUNA_TRIALS_PER_MODEL.get(name, OPTUNA_TRIALS)
         is_xgb = (name == "XGBoost")
+        is_dnn = (name == "DNN")
+
+        # Skip Optuna for models with 0 trials — copy default result directly
+        if n_trials == 0:
+            print(f"\n  {MODEL_LABELS[name]}: Optuna saltado (0 trials) — usando defaults")
+            def_r = default_results[name]
+            optimized_results[name] = {
+                "model": def_r["model"], "metrics": def_r["metrics"],
+                "y_proba": def_r["y_proba"], "y_pred": def_r["y_pred"],
+                "train_time": def_r["train_time"],
+                "best_params": {},
+                "balance_used": def_r.get("balance_used", best_balance),
+            }
+            print(f"    (default) AUC-ROC={def_r['metrics']['auc_roc']:.4f} | "
+                  f"Recall={def_r['metrics']['recall']:.4f} | MCC={def_r['metrics']['mcc']:.4f}")
+            gc.collect()
+            continue
+
+        # Per-model best balance lookup
+        Xtr_opt, ytr_opt, bal_used_opt = _get_train_data_for_model(name)
+        print(f"\n  Optimizando {MODEL_LABELS[name]} ({n_trials} trials) "
+              f"[balance={BALANCE_LABELS.get(bal_used_opt, bal_used_opt)}]...")
 
         if is_xgb:
-            obj = OPTUNA_OBJECTIVES[name](X_train, y_train, X_val, y_val)
+            obj = OPTUNA_OBJECTIVES[name](Xtr_opt, ytr_opt, X_val, y_val)
+        elif is_dnn:
+            obj = make_dnn_objective(
+                dnn_data["dense_dim"],
+                Xtr_opt, ytr_opt,
+                dnn_val_inputs, y_val,
+                dnn_data["cardinalities"], EMBED_COLS,
+            )
         else:
-            obj = OPTUNA_OBJECTIVES[name](input_dim, X_train, y_train, X_val, y_val)
+            obj = OPTUNA_OBJECTIVES[name](input_dim, Xtr_opt, ytr_opt, X_val, y_val)
 
         study = optuna.create_study(direction="maximize",
                                     sampler=optuna.samplers.TPESampler(seed=SEED))
-        study.optimize(obj, n_trials=OPTUNA_TRIALS, show_progress_bar=False)
+        study.optimize(obj, n_trials=n_trials, show_progress_bar=False)
 
-        print(f"    Mejor trial: AUC-ROC={study.best_value:.4f}")
+        print(f"    Mejor trial: F1={study.best_value:.4f}")
         print(f"    Params: {study.best_params}")
 
-        # Retrain with best params (full epochs)
+        # Retrain with best params
         bp = study.best_params
         if is_xgb:
-            n_neg, n_pos = np.sum(y_train == 0), np.sum(y_train == 1)
+            n_neg, n_pos = np.sum(ytr_opt == 0), np.sum(ytr_opt == 1)
             model = xgb.XGBClassifier(
                 n_estimators=bp.get("n_estimators", 300),
                 max_depth=bp.get("max_depth", 6),
@@ -857,36 +1184,56 @@ def main():
                 eval_metric="auc", random_state=SEED,
                 use_label_encoder=False, verbosity=0, n_jobs=-1,
             )
-            model, _, t_time = train_xgb(model, X_train, y_train, X_val, y_val, name)
+            model, _, t_time = train_xgb(model, Xtr_opt, ytr_opt, X_val, y_val, name)
+            metrics, y_proba, y_pred = evaluate(model, X_test, y_test, is_xgb=True)
+        elif is_dnn:
+            # Retrain DNN-Emb with Optuna best params + embedding scaling
+            emb_scale = bp.get("emb_scale", 1.0)
+            best_dims = [max(2, int(round(d * emb_scale))) for d in embed_dims_default]
+            num_input = layers.Input(shape=(dnn_data["dense_dim"],), name="dense_in")
+            cat_inputs, cat_embeds = [], []
+            for col, card, dim in zip(EMBED_COLS, dnn_data["cardinalities"], best_dims):
+                ci = layers.Input(shape=(1,), name=f"cat_{col}", dtype="int32")
+                ce = layers.Embedding(card, dim, name=f"emb_{col}")(ci)
+                ce = layers.Flatten(name=f"flat_{col}")(ce)
+                cat_inputs.append(ci); cat_embeds.append(ce)
+            xf = layers.Concatenate(name="fusion")([num_input] + cat_embeds)
+            xf = layers.Dense(bp.get("units_1", 384), activation="relu")(xf)
+            xf = layers.BatchNormalization()(xf)
+            xf = layers.Dropout(bp.get("dropout", 0.3))(xf)
+            xf = _residual_block(xf, bp.get("units_2", 192),
+                                  dropout_rate=bp.get("dropout", 0.3) * 0.85); xf = _se_block(xf)
+            xf = _residual_block(xf, bp.get("units_3", 96),
+                                  dropout_rate=bp.get("dropout", 0.3) * 0.7);  xf = _se_block(xf)
+            xf = layers.Dense(32, activation="relu")(xf); xf = layers.Dropout(0.15)(xf)
+            out = layers.Dense(1, activation="sigmoid")(xf)
+            model = Model([num_input] + cat_inputs, out, name="DNN")
+            model, _, t_time = train_keras(
+                model, Xtr_opt, ytr_opt,
+                dnn_val_inputs, y_val, name,
+                lr=bp.get("lr", 0.001),
+                batch_size=bp.get("batch_size", 256),
+            )
+            metrics, y_proba, y_pred = evaluate(model, dnn_test_inputs, y_test, is_xgb=False)
         else:
-            # Rebuild model with Optuna params and train longer
+            # Rebuild non-DNN model with Optuna params
             lr = bp.get("lr", 0.001)
             batch_size = bp.get("batch_size", 256)
-            # Use the objective to create the best model, then retrain from scratch
-            # For simplicity, we run the objective one more time with best params
-            obj_final = OPTUNA_OBJECTIVES[name](
-                input_dim, X_train, y_train, X_val, y_val
-            ) if not is_xgb else None
-
-            # Retrain by constructing from study best trial
-            trial = study.best_trial
-            # Trick: re-execute the objective so the last model is cached
-            # Instead, reconstruct from params
             model = DEFAULT_BUILDERS[name](input_dim)
             model, _, t_time = train_keras(
-                model, X_train, y_train, X_val, y_val, name,
+                model, Xtr_opt, ytr_opt, X_val, y_val, name,
                 lr=lr, batch_size=batch_size
             )
-
-        metrics, y_proba, y_pred = evaluate(model, X_test, y_test, is_xgb)
+            metrics, y_proba, y_pred = evaluate(model, X_test, y_test, is_xgb=False)
         optimized_results[name] = {
             "model": model, "metrics": metrics,
             "y_proba": y_proba, "y_pred": y_pred,
             "train_time": t_time,
             "best_params": bp,
+            "balance_used": bal_used_opt,
         }
         print(f"    Final: AUC-ROC={metrics['auc_roc']:.4f} | "
-              f"Recall={metrics['recall']:.4f} | MCC={metrics['mcc']:.4f}")
+              f"Recall={metrics['recall']:.4f} | F1={metrics['f1']:.4f} | MCC={metrics['mcc']:.4f}")
         gc.collect()
 
     # ─── COMPARATIVA ──────────────────────────────────────────────
@@ -949,11 +1296,18 @@ def main():
 
     # ─── SHAP ────────────────────────────────────────────────────
     is_xgb_export = (export_model_name == "XGBoost")
-    try:
-        run_shap(export_model, export_model_name, X_test,
-                 feature_names, is_xgb=is_xgb_export)
-    except Exception as e:
-        print(f"  ⚠ SHAP falló: {e}")
+    is_dnn_emb_export = (export_model_name == "DNN" and len(export_model.inputs) > 1)
+    if is_dnn_emb_export:
+        try:
+            run_shap_dnn_emb(export_model, dnn_test_inputs, EMBED_COLS, dnn_data)
+        except Exception as e:
+            print(f"  ⚠ SHAP DNN-Emb falló: {e}")
+    else:
+        try:
+            run_shap(export_model, export_model_name, X_test,
+                     feature_names, is_xgb=is_xgb_export)
+        except Exception as e:
+            print(f"  ⚠ SHAP falló: {e}")
 
     # ─── GUARDAR ─────────────────────────────────────────────────
     print("\n[GUARDANDO MODELO FINAL]")

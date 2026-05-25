@@ -41,7 +41,7 @@ from collections import OrderedDict
 
 # ML / DL
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.preprocessing import StandardScaler, OneHotEncoder, OrdinalEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline as SKPipeline
 from sklearn.metrics import (
@@ -68,14 +68,15 @@ def get_best_f1_threshold(y_true, y_proba):
             best_f1, best_th = f1, th
     return best_th, best_f1
 
-from imblearn.over_sampling import SMOTE, ADASYN
+from imblearn.over_sampling import SMOTE, ADASYN, SMOTENC
 from imblearn.combine import SMOTETomek
+from imblearn.under_sampling import TomekLinks
 from joblib import dump
 import xgboost as xgb
 
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.keras import layers, Model, Sequential
+from tensorflow.keras import layers, Model
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 
 # ─── Config ───────────────────────────────────────────────────────────
@@ -99,27 +100,41 @@ plt.rcParams.update({
 })
 
 # ═══════════════════════════════════════════════════════════════════════
-# FEATURES
+# FEATURES (aligned with §3.C output of 02b_preprocess_and_label.py)
 # ═══════════════════════════════════════════════════════════════════════
 NUMERIC_FEATURES = [
-    "transaction_amount", "amt_log1p", "hour", "day_of_week", "month",
-    "is_weekend", "eci_code", "has_3ds", "city_population", "num_items",
-    "has_discount", "num_installments", "previous_failed_attempts",
-    "is_new_customer", "days_since_first_purchase", "avg_historical_amount",
-    "is_high_risk_hour", "amount_deviation",
-    "hour_sin", "hour_cos", "day_sin", "day_cos", "month_sin", "month_cos",
-    # Non-linear interaction features (ventaja DNN sobre árboles)
-    "amt_hour_interaction", "amt_fail_interaction", "risk_score_smooth",
-    "amt_pop_sigmoid", "customer_maturity", "night_newcust_score",
-    "session_duration_minutes", "interaction_velocity",
-    "device_telemetry_1", "device_telemetry_2", "device_telemetry_3",
-    "device_telemetry_4", "device_telemetry_5",
+    # Raw transactional fields
+    "transaction_amount", "discount_amount",
+    "tx_hour", "tx_day_of_week", "tx_month",
+    "eci", "action_code", "num_installments", "num_items",
+    # 7 transactional ratios from §3.C.2 (4 Vasquez-analog + 3 novel)
+    "AAR", "CMR", "ASI", "VRR", "DAR", "CSI", "DPE",
 ]
-CATEGORICAL_FEATURES = [
-    "card_brand", "card_type", "issuer_bank", "payment_channel",
-    "customer_region", "category",
+
+# Categorical features split for DNN with embeddings vs baselines with OHE.
+# - OHE_CATEGORICAL_FEATURES: low cardinality (≤8), OneHot is optimal
+# - EMBED_CATEGORICAL_FEATURES: high cardinality (≥10), embeddings benefit
+#   the DNN (Borisov 2024); baselines still use OneHot for all cats.
+OHE_CATEGORICAL_FEATURES = [
+    "card_brand", "card_type", "currency",
+    "transaction_status", "payment_channel",
+    "wallet_yape", "wallet_plin",
+    "product_category",
 ]
-TARGET = "is_fraud"
+EMBED_CATEGORICAL_FEATURES = {
+    # column_name: embedding_dim
+    "issuer_bank":     6,    # ~12 banks
+    "customer_region": 6,    # ~16 Peruvian regions
+    "email_domain":    5,    # ~15 domains
+    "denial_reason":   5,    # ~10 standardized denial messages
+    "bin":             8,    # ~100-500 unique BINs (issuer + card-type fingerprint)
+}
+EMBED_COLS = list(EMBED_CATEGORICAL_FEATURES.keys())
+# Aggregate list (for OneHot path used by CNN/RNN/AE/XGBoost)
+CATEGORICAL_FEATURES = OHE_CATEGORICAL_FEATURES + EMBED_COLS
+
+TARGET = "is_fraud_ground_truth"
+HEURISTIC_BASELINE_COL = "heuristic_label"
 
 # ═══════════════════════════════════════════════════════════════════════
 # COLORES Y LABELS
@@ -153,49 +168,34 @@ BALANCE_COLORS = {
 # 1. CARGA Y PREPROCESAMIENTO (con Feature Engineering avanzado)
 # ═══════════════════════════════════════════════════════════════════════
 
-def engineer_features(df):
-    """Crea features de interacción que las redes neuronales capturan
-    mejor que los modelos basados en árboles."""
-    df = df.copy()
-    # Interacciones clave de dominio
-    df["amt_x_new_customer"] = df["transaction_amount"] * df["is_new_customer"]
-    df["amt_x_high_risk_hour"] = df["transaction_amount"] * df["is_high_risk_hour"]
-    df["failed_x_new"] = df["previous_failed_attempts"] * df["is_new_customer"]
-    df["deviation_x_no3ds"] = df["amount_deviation"] * (1 - df["has_3ds"])
-    df["amt_ratio_hist"] = df["transaction_amount"] / (df["avg_historical_amount"] + 1)
-    df["risk_score_proxy"] = (
-        df["is_high_risk_hour"] * 2 +
-        df["is_new_customer"] * 1.5 +
-        (1 - df["has_3ds"]) * 2 +
-        np.clip(df["previous_failed_attempts"], 0, 5) * 1.0 +
-        np.clip(df["amount_deviation"], 0, 10) * 0.5
-    )
-    return df
-
-# Features de interacción adicionales (se añaden post-escalado)
-INTERACTION_FEATURES = [
-    "amt_x_new_customer", "amt_x_high_risk_hour", "failed_x_new",
-    "deviation_x_no3ds", "amt_ratio_hist", "risk_score_proxy",
-]
-
-
 def load_and_preprocess():
-    """Carga datos, preprocesa con feature engineering y divide en train/val/test."""
+    """
+    Loads the §3.C-processed dataset (output of 02b_preprocess_and_label.py),
+    splits into train/val/test, and applies ColumnTransformer (scaling + OHE).
+    No feature engineering happens here — ratios already computed upstream.
+    """
     print("\n[1] CARGA Y PREPROCESAMIENTO")
     print("-" * 50)
 
-    df = pd.read_csv(DATA_DIR / "fraud_ecommerce_dataset.csv")
+    df = pd.read_csv(DATA_DIR / "fraud_ecommerce_dataset_processed.csv")
     print(f"  Dataset: {df.shape[0]:,} filas × {df.shape[1]} columnas")
-    print(f"  Fraude: {df[TARGET].sum():,} ({df[TARGET].mean()*100:.1f}%)")
+    print(f"  Target (is_fraud_ground_truth): "
+          f"{df[TARGET].sum():,} fraud ({df[TARGET].mean()*100:.1f}%)")
+    if HEURISTIC_BASELINE_COL in df.columns:
+        h_rate = df[HEURISTIC_BASELINE_COL].mean() * 100
+        # Baseline performance of the rule-based heuristic vs ground truth
+        tp = int(((df[HEURISTIC_BASELINE_COL] == 1) & (df[TARGET] == 1)).sum())
+        fp = int(((df[HEURISTIC_BASELINE_COL] == 1) & (df[TARGET] == 0)).sum())
+        fn = int(((df[HEURISTIC_BASELINE_COL] == 0) & (df[TARGET] == 1)).sum())
+        h_prec = tp / max(tp + fp, 1); h_rec = tp / max(tp + fn, 1)
+        h_f1 = 2 * h_prec * h_rec / max(h_prec + h_rec, 1e-9)
+        print(f"  (Heuristic baseline ({h_rate:.1f}%): P={h_prec:.3f} R={h_rec:.3f} F1={h_f1:.3f})")
 
-    # Feature engineering
-    df = engineer_features(df)
-    all_numeric = NUMERIC_FEATURES + INTERACTION_FEATURES
-    print(f"  Features de interacción agregadas: {len(INTERACTION_FEATURES)}")
-
+    all_numeric = list(NUMERIC_FEATURES)
     X = df[all_numeric + CATEGORICAL_FEATURES].copy()
     y = df[TARGET].values
 
+    # ─── Full OHE preprocessor (used by CNN, RNN, AE, XGBoost) ─────────────
     preprocessor = ColumnTransformer(
         transformers=[
             ("num", SKPipeline([("scaler", StandardScaler())]), all_numeric),
@@ -204,6 +204,23 @@ def load_and_preprocess():
             ))]), CATEGORICAL_FEATURES),
         ],
         remainder="drop"
+    )
+
+    # ─── DNN-Embedding preprocessor: numeric+OHE_low (dense), Ord_high (ints) ─
+    # The DNN receives two streams:
+    #   stream A = scaled numerics + one-hot of LOW-cardinality categoricals
+    #   stream B = ordinal-encoded HIGH-cardinality categoricals (one int per col)
+    dnn_dense_preprocessor = ColumnTransformer(
+        transformers=[
+            ("num", SKPipeline([("scaler", StandardScaler())]), all_numeric),
+            ("ohe_low", SKPipeline([("onehot", OneHotEncoder(
+                handle_unknown="ignore", sparse_output=False
+            ))]), OHE_CATEGORICAL_FEATURES),
+        ],
+        remainder="drop"
+    )
+    dnn_ordinal_encoder = OrdinalEncoder(
+        handle_unknown="use_encoded_value", unknown_value=-1
     )
 
     # Split: 70% train, 15% val, 15% test
@@ -216,24 +233,59 @@ def load_and_preprocess():
 
     print(f"  Train: {len(X_train):,} | Val: {len(X_val):,} | Test: {len(X_test):,}")
 
+    # Full OHE matrices (for non-DNN models)
     X_train_proc = preprocessor.fit_transform(X_train)
     X_val_proc   = preprocessor.transform(X_val)
     X_test_proc  = preprocessor.transform(X_test)
+
+    # DNN-Embedding matrices
+    X_train_dense = dnn_dense_preprocessor.fit_transform(X_train)
+    X_val_dense   = dnn_dense_preprocessor.transform(X_val)
+    X_test_dense  = dnn_dense_preprocessor.transform(X_test)
+
+    X_train_ord = dnn_ordinal_encoder.fit_transform(X_train[EMBED_COLS]).astype(np.int64)
+    X_val_ord   = dnn_ordinal_encoder.transform(X_val[EMBED_COLS]).astype(np.int64)
+    X_test_ord  = dnn_ordinal_encoder.transform(X_test[EMBED_COLS]).astype(np.int64)
+
+    # Cardinalities for Embedding layer construction (+2 for <unknown=-1> and safety margin)
+    cardinalities = []
+    for j, col in enumerate(EMBED_COLS):
+        c = int(X_train_ord[:, j].max()) + 2
+        cardinalities.append(c)
+    # Shift -1 (unknown) to 0 and shift rest by 1 so they're in [0, cardinality)
+    X_train_ord = X_train_ord + 1
+    X_val_ord   = np.clip(X_val_ord + 1, 0, None)
+    X_test_ord  = np.clip(X_test_ord + 1, 0, None)
+    print(f"  DNN-Emb cardinalities: {dict(zip(EMBED_COLS, cardinalities))}")
 
     num_names = all_numeric
     cat_names = list(preprocessor.named_transformers_["cat"]
                      .named_steps["onehot"]
                      .get_feature_names_out(CATEGORICAL_FEATURES))
     feature_names = num_names + cat_names
-    print(f"  Features procesadas: {len(feature_names)}")
+    print(f"  Features procesadas (OHE path): {len(feature_names)}")
 
-    # Guardar preprocesador
+    # Persistir preprocesadores
     dump(preprocessor, MODEL_DIR / "preprocessor.joblib")
+    dump(dnn_dense_preprocessor, MODEL_DIR / "dnn_dense_preprocessor.joblib")
+    dump(dnn_ordinal_encoder, MODEL_DIR / "dnn_ordinal_encoder.joblib")
     with open(MODEL_DIR / "feature_names.json", "w") as f:
         json.dump(feature_names, f, indent=2)
+    with open(MODEL_DIR / "dnn_embedding_spec.json", "w") as f:
+        json.dump({
+            "embed_cols": EMBED_COLS,
+            "embed_dims": list(EMBED_CATEGORICAL_FEATURES.values()),
+            "cardinalities": cardinalities,
+        }, f, indent=2)
 
+    dnn_data = {
+        "X_train_dense": X_train_dense, "X_val_dense": X_val_dense, "X_test_dense": X_test_dense,
+        "X_train_ord":   X_train_ord,   "X_val_ord":   X_val_ord,   "X_test_ord":   X_test_ord,
+        "cardinalities": cardinalities,
+        "dense_dim":     X_train_dense.shape[1],
+    }
     return (X_train_proc, y_train, X_val_proc, y_val,
-            X_test_proc, y_test, feature_names, preprocessor)
+            X_test_proc, y_test, feature_names, preprocessor, dnn_data)
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -261,6 +313,60 @@ def apply_balancing(X_train, y_train, method):
 
     print(f"    Después: {dict(zip(*np.unique(y_bal, return_counts=True)))}")
     return X_bal, y_bal
+
+
+def apply_balancing_dnn_emb(X_dense, X_ord, y, method):
+    """Balanceo para DAFD-Net (multi-input) usando SMOTENC, que preserva
+    la validez de las features categóricas ordinal-encoded (necesario para
+    las capas de Embedding).
+
+    - baseline:    pass-through (class_weight vía Focal Loss)
+    - smote_tomek: SMOTENC + TomekLinks borderline cleanup
+    - adasyn:      SMOTENC con sampling adaptativo por densidad
+
+    Justificación: ADASYN clásico no maneja features nominales/ordinales.
+    SMOTENC (Chawla et al. 2002, extensión NC) sintetiza categoricals vía
+    moda de los k-vecinos, garantizando que los valores resultantes sean
+    índices válidos para los Embedding layers.
+    """
+    if method == "baseline":
+        return X_dense, X_ord, y
+
+    n_dense = X_dense.shape[1]
+    n_ord   = X_ord.shape[1]
+    # Concatenar dense + ordinal en un solo array (SMOTENC necesita matriz única)
+    X_combined = np.hstack([X_dense, X_ord.astype(np.float64)])
+    cat_indices = list(range(n_dense, n_dense + n_ord))
+
+    print(f"\n  [DNN-Emb] Aplicando SMOTENC ({BALANCE_LABELS[method]})...")
+    print(f"    Antes: {dict(zip(*np.unique(y, return_counts=True)))}")
+
+    if method == "smote_tomek":
+        smote_nc = SMOTENC(categorical_features=cat_indices,
+                            random_state=SEED, sampling_strategy=0.4, k_neighbors=5)
+        X_bal, y_bal = smote_nc.fit_resample(X_combined, y)
+        # Tomek cleanup (eliminar pares borderline de clases opuestas)
+        tomek = TomekLinks(sampling_strategy="majority")
+        X_bal, y_bal = tomek.fit_resample(X_bal, y_bal)
+    elif method == "adasyn":
+        # ADASYN no tiene variante NC; usamos SMOTENC con sampling más denso
+        # como aproximación adaptive-friendly del comportamiento ADASYN.
+        smote_nc = SMOTENC(categorical_features=cat_indices,
+                            random_state=SEED, sampling_strategy=0.5, k_neighbors=5)
+        X_bal, y_bal = smote_nc.fit_resample(X_combined, y)
+    else:
+        raise ValueError(f"Método desconocido: {method}")
+
+    # Split back to dense / ordinal
+    X_dense_bal = X_bal[:, :n_dense]
+    X_ord_bal   = np.round(X_bal[:, n_dense:]).astype(np.int64)
+    # Clip to valid embedding range (SMOTENC should already do this via mode,
+    # but defensive clipping prevents OOB errors in Embedding layer).
+    for j in range(n_ord):
+        max_val = X_ord[:, j].max()
+        X_ord_bal[:, j] = np.clip(X_ord_bal[:, j], 0, max_val)
+    print(f"    Después: {dict(zip(*np.unique(y_bal, return_counts=True)))}")
+    return X_dense_bal, X_ord_bal, y_bal
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -317,28 +423,59 @@ def _se_block(x, ratio=4):
     return layers.Multiply()([x, se])
 
 
-def build_dnn(input_dim):
-    """Modelo 1: Deep Neural Network con Bloques Residuales + SE Attention."""
-    inp = layers.Input(shape=(input_dim,))
+def build_dnn(input_dim, cardinalities=None, embed_dims=None, embed_cols=None):
+    """DAFD-Net: Residual + SE + categorical embeddings (Camino B).
 
-    # Stem: Proyección inicial
-    x = layers.Dense(384, activation="relu")(inp)
+    Two-stream input:
+      stream A = scaled numerics + one-hot of LOW-cardinality categoricals
+      stream B = one ordinal-integer input per HIGH-cardinality categorical,
+                 each fed through a dedicated Embedding layer.
+
+    Justification: per Borisov et al. (2024) and Gorishniy et al. (2021),
+    high-cardinality categoricals benefit from dense embeddings, whereas
+    one-hot is optimal for low cardinality. Tree-based baselines retain
+    one-hot encoding throughout.
+    """
+    if cardinalities is None or not cardinalities:
+        # Fallback: legacy single-input architecture (used only when DNN
+        # data preparation is unavailable for some reason).
+        inp = layers.Input(shape=(input_dim,))
+        x = layers.Dense(384, activation="relu")(inp)
+        x = layers.BatchNormalization()(x)
+        x = layers.Dropout(0.3)(x)
+        x = _residual_block(x, 256, dropout_rate=0.30); x = _se_block(x)
+        x = _residual_block(x, 128, dropout_rate=0.25); x = _se_block(x)
+        x = _residual_block(x, 64,  dropout_rate=0.20)
+        x = layers.Dense(32, activation="relu")(x); x = layers.Dropout(0.15)(x)
+        out = layers.Dense(1, activation="sigmoid")(x)
+        return Model(inp, out, name="DNN")
+
+    # ── Dense stream (numerics + low-card OHE) ──
+    num_input = layers.Input(shape=(input_dim,), name="dense_in")
+
+    # ── Embedding streams (one per high-card categorical) ──
+    cat_inputs, cat_embeds = [], []
+    for col, cardinality, dim in zip(embed_cols, cardinalities, embed_dims):
+        ci = layers.Input(shape=(1,), name=f"cat_{col}", dtype="int32")
+        ce = layers.Embedding(cardinality, dim,
+                               embeddings_regularizer=None,
+                               name=f"emb_{col}")(ci)
+        ce = layers.Flatten(name=f"flat_{col}")(ce)
+        cat_inputs.append(ci)
+        cat_embeds.append(ce)
+
+    # ── Fusion + DAFD-Net core (Stem → 3 ResBlocks + 2 SE → Head) ──
+    x = layers.Concatenate(name="fusion")([num_input] + cat_embeds)
+    x = layers.Dense(384, activation="relu")(x)
     x = layers.BatchNormalization()(x)
     x = layers.Dropout(0.3)(x)
-
-    # Bloques residuales con SE attention
-    x = _residual_block(x, 256, dropout_rate=0.30)
-    x = _se_block(x)
-    x = _residual_block(x, 128, dropout_rate=0.25)
-    x = _se_block(x)
-    x = _residual_block(x, 64, dropout_rate=0.20)
-
-    # Classification head
+    x = _residual_block(x, 256, dropout_rate=0.30); x = _se_block(x)
+    x = _residual_block(x, 128, dropout_rate=0.25); x = _se_block(x)
+    x = _residual_block(x, 64,  dropout_rate=0.20)
     x = layers.Dense(32, activation="relu")(x)
     x = layers.Dropout(0.15)(x)
     out = layers.Dense(1, activation="sigmoid")(x)
-
-    return Model(inp, out, name="DNN")
+    return Model([num_input] + cat_inputs, out, name="DNN")
 
 
 def build_cnn(input_dim):
@@ -439,20 +576,34 @@ class WarmUpSchedule(keras.callbacks.Callback):
             self.model.optimizer.learning_rate.assign(lr)
 
 
-# Configuración de entrenamiento por modelo
-# DNN tiene prioridad: más epochs y paciencia para convergencia óptima
-TRAIN_CONFIG = {
-    "DNN":              {"epochs": 150, "patience": 20, "lr_patience": 8},
-    "CNN_1D":           {"epochs": 15,  "patience": 3,  "lr_patience": 2},
-    "RNN_GRU":          {"epochs": 15,  "patience": 3,  "lr_patience": 2},
-    "AutoEncoder_Clf":  {"epochs": 15,  "patience": 3,  "lr_patience": 2},
-}
+# Equal wall-clock budget across all DL models (defensible against reviewers).
+# Each model gets the same MAX_WALLCLOCK_SECONDS to train; early stopping may
+# end sooner. Reported as part of methodology in §3.B.3.
+MAX_WALLCLOCK_SECONDS = 600
+PATIENCE_EPOCHS = 15
+LR_PATIENCE_EPOCHS = 6
+MAX_EPOCHS_HARD_CAP = 200
+
+
+class WallClockBudget(keras.callbacks.Callback):
+    """Stops training when elapsed wall-clock time exceeds the budget."""
+    def __init__(self, budget_seconds: float):
+        super().__init__()
+        self.budget = budget_seconds
+        self._start = None
+
+    def on_train_begin(self, logs=None):
+        self._start = time.time()
+
+    def on_epoch_end(self, epoch, logs=None):
+        if (time.time() - self._start) > self.budget:
+            self.model.stop_training = True
+
 
 def train_keras_model(model, X_train, y_train, X_val, y_val, model_name,
                       batch_size=256):
-    """Entrena un modelo Keras con Focal Loss, warmup y early stopping."""
-    cfg = TRAIN_CONFIG.get(model_name, {"epochs": 60, "patience": 8, "lr_patience": 4})
-
+    """Trains a Keras model with Focal Loss, warmup, early stopping, and an
+    EQUAL wall-clock budget across all models (fair comparison)."""
     model.compile(
         optimizer=keras.optimizers.Adam(learning_rate=1e-4),
         loss=focal_loss(gamma=2.0, alpha=0.75),
@@ -461,25 +612,27 @@ def train_keras_model(model, X_train, y_train, X_val, y_val, model_name,
 
     callbacks = [
         WarmUpSchedule(warmup_epochs=5, target_lr=0.001),
-        EarlyStopping(monitor="val_auc", patience=cfg["patience"],
+        EarlyStopping(monitor="val_auc", patience=PATIENCE_EPOCHS,
                       restore_best_weights=True, mode="max"),
         ReduceLROnPlateau(monitor="val_loss", factor=0.5,
-                          patience=cfg["lr_patience"], min_lr=1e-6),
+                          patience=LR_PATIENCE_EPOCHS, min_lr=1e-6),
+        WallClockBudget(MAX_WALLCLOCK_SECONDS),
     ]
 
     start = time.time()
     history = model.fit(
         X_train, y_train,
         validation_data=(X_val, y_val),
-        epochs=cfg["epochs"],
+        epochs=MAX_EPOCHS_HARD_CAP,
         batch_size=batch_size,
         callbacks=callbacks,
         verbose=0,
     )
     train_time = time.time() - start
 
-    best_epoch = np.argmax(history.history.get("val_auc", [0]))
-    print(f"    ✓ {model_name} entrenado en {train_time:.1f}s ({best_epoch+1} epochs)")
+    best_epoch = int(np.argmax(history.history.get("val_auc", [0])))
+    print(f"    ✓ {model_name} trained in {train_time:.1f}s "
+          f"({len(history.history.get('loss', []))} epochs, best @ {best_epoch+1})")
     return model, train_time
 
 
@@ -611,13 +764,17 @@ def plot_balance_bars(all_results):
         x = np.arange(len(MODEL_LABELS))
         width = 0.25
         for i, (bal, models) in enumerate(all_results.items()):
-            vals = [models[m]["metrics"][mk] for m in MODEL_BUILDERS.keys()]
+            # DNN-Emb runs baseline only; for other balances use NaN placeholder
+            vals = [models[m]["metrics"][mk] if m in models else float("nan")
+                     for m in MODEL_BUILDERS.keys()]
             offset = (i - 1) * width
             bars = ax.bar(x + offset, vals, width,
                           label=BALANCE_LABELS[bal],
                           color=BALANCE_COLORS[bal],
                           edgecolor="white", alpha=0.85)
             for bar, val in zip(bars, vals):
+                if val != val:  # NaN
+                    continue
                 if mk == "costo_negocio":
                     label_text = f"{val:,.0f}"
                 else:
@@ -756,22 +913,35 @@ def plot_confusion_matrices_best(all_results, y_test, best_balance, best_model):
 # MAIN
 # ═══════════════════════════════════════════════════════════════════════
 
+def _dnn_input_list(dense_arr, ord_arr):
+    """Build a Keras-fit input list: [dense, cat_col_1, cat_col_2, ...]."""
+    return [dense_arr] + [ord_arr[:, j:j+1] for j in range(ord_arr.shape[1])]
+
+
 def main():
     print("=" * 70)
     print("FASE 1: EXPERIMENTACIÓN DE BALANCEO")
-    print("3 Técnicas × 5 Modelos = 15 combinaciones")
+    print("DNN con Embeddings (baseline) + 4 baselines × 3 técnicas")
     print("=" * 70)
 
-    # 1. Load & preprocess
+    # 1. Load & preprocess (dual representation)
     (X_train_orig, y_train_orig, X_val, y_val,
-     X_test, y_test, feature_names, preprocessor) = load_and_preprocess()
+     X_test, y_test, feature_names, preprocessor, dnn_data) = load_and_preprocess()
 
     input_dim = X_train_orig.shape[1]
-    print(f"  Input dimension: {input_dim}")
+    print(f"  Input dim (OHE path): {input_dim}")
+    print(f"  Input dim (DNN dense stream): {dnn_data['dense_dim']}")
+    print(f"  DNN embedding streams: {len(dnn_data['cardinalities'])}")
 
     balance_methods = ["baseline", "smote_tomek", "adasyn"]
     all_results = OrderedDict()
     distributions = OrderedDict()
+
+    # Prepare DNN multi-input lists once (DNN-Emb uses baseline only)
+    dnn_train_inputs = _dnn_input_list(dnn_data["X_train_dense"], dnn_data["X_train_ord"])
+    dnn_val_inputs   = _dnn_input_list(dnn_data["X_val_dense"],   dnn_data["X_val_ord"])
+    dnn_test_inputs  = _dnn_input_list(dnn_data["X_test_dense"],  dnn_data["X_test_ord"])
+    embed_dims = list(EMBED_CATEGORICAL_FEATURES.values())
 
     # 2. Iterate over balancing methods
     for bal_method in balance_methods:
@@ -786,15 +956,37 @@ def main():
         counts = np.bincount(y_train_bal.astype(int))
         distributions[bal_method] = (int(counts[0]), int(counts[1]))
 
+        # ── DNN-Emb balancing via SMOTENC (preserva validez de embeddings) ──
+        # Para DAFD-Net, aplicamos SMOTENC sobre el vector concatenado
+        # dense+ordinal, que sintetiza categoricals vía moda de k-vecinos
+        # (no interpola índices fraccionarios). Output se vuelve a split.
+        X_dense_bal_dnn, X_ord_bal_dnn, y_bal_dnn = apply_balancing_dnn_emb(
+            dnn_data["X_train_dense"], dnn_data["X_train_ord"],
+            y_train_orig, bal_method
+        )
+        dnn_train_inputs_bal = _dnn_input_list(X_dense_bal_dnn, X_ord_bal_dnn)
+
         model_results = OrderedDict()
         for model_name, builder in MODEL_BUILDERS.items():
             print(f"\n  [{bal_method}] Entrenando {MODEL_LABELS[model_name]}...")
             is_xgb = (model_name == "XGBoost")
+            is_dnn_emb = (model_name == "DNN")
 
             if is_xgb:
                 model = builder(input_dim)
                 model, train_time = train_xgboost_model(
                     model, X_train_bal, y_train_bal, X_val, y_val, model_name
+                )
+            elif is_dnn_emb:
+                model = build_dnn(
+                    dnn_data["dense_dim"],
+                    cardinalities=dnn_data["cardinalities"],
+                    embed_dims=embed_dims,
+                    embed_cols=EMBED_COLS,
+                )
+                model, train_time = train_keras_model(
+                    model, dnn_train_inputs_bal, y_bal_dnn,
+                    dnn_val_inputs, y_val, model_name
                 )
             else:
                 model = builder(input_dim)
@@ -802,9 +994,15 @@ def main():
                     model, X_train_bal, y_train_bal, X_val, y_val, model_name
                 )
 
-            metrics, y_proba, y_pred = evaluate_model(
-                model, X_test, y_test, is_xgb=is_xgb
-            )
+            # Evaluate (DNN uses its multi-input test set)
+            if is_dnn_emb:
+                metrics, y_proba, y_pred = evaluate_model(
+                    model, dnn_test_inputs, y_test, is_xgb=False
+                )
+            else:
+                metrics, y_proba, y_pred = evaluate_model(
+                    model, X_test, y_test, is_xgb=is_xgb
+                )
             model_results[model_name] = {
                 "model": model,
                 "metrics": metrics,
@@ -852,8 +1050,23 @@ def main():
                 best_cost = m["costo_negocio"]
 
     print("-" * 100)
-    print(f"🏆 GANADOR: {MODEL_LABELS[best_model]} + "
+    print(f"🏆 GANADOR GLOBAL: {MODEL_LABELS[best_model]} + "
           f"{BALANCE_LABELS[best_balance]} (F1-Score = {best_f1:.4f})")
+
+    # Per-model best balance (used by Phase 2 for fair per-model optimization)
+    best_balance_per_model = {}
+    for model_name in MODEL_BUILDERS.keys():
+        best_f1_m, best_bal_m = -1.0, "baseline"
+        for bal, models in all_results.items():
+            if model_name not in models:
+                continue
+            f1 = models[model_name]["metrics"]["f1"]
+            if f1 > best_f1_m:
+                best_f1_m, best_bal_m = f1, bal
+        best_balance_per_model[model_name] = best_bal_m
+    print("\n🎯 BEST BALANCE PER MODEL (used by Phase 2):")
+    for m, b in best_balance_per_model.items():
+        print(f"   {MODEL_LABELS[m]:14s} → {BALANCE_LABELS[b]}")
 
     # 4. Visualizations
     print("\n[VISUALIZACIONES]")
@@ -869,10 +1082,11 @@ def main():
 
     # 5. Save results for next phase
     results_export = {
-        "best_balance": best_balance,
+        "best_balance": best_balance,                   # global winner (backwards compat)
         "best_model": best_model,
         "best_auc_roc": best_auc,
         "best_cost": best_cost,
+        "best_balance_per_model": best_balance_per_model,   # NEW: per-model best
         "all_metrics": {},
     }
     for bal, models in all_results.items():

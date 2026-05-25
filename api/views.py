@@ -33,6 +33,7 @@ from .serializers import (
     ConfiguracionSerializer,
     IncidenteSerializer,
     TransaccionSerializer,
+    TransaccionReadSerializer,
     UsuarioSerializer,
 )
 
@@ -67,32 +68,49 @@ class UsuarioViewSet(viewsets.ModelViewSet):
 class TransaccionViewSet(viewsets.ModelViewSet):
     """CRUD REST para transacciones — ejecuta predicción al crear."""
     queryset = Transaccion.objects.all()
-    serializer_class = TransaccionSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['category', 'card_brand', 'customer_region']
+    filterset_fields = ['product_category', 'card_brand', 'customer_region']
+
+    def get_serializer_class(self):
+        if self.action in ('list', 'retrieve'):
+            return TransaccionReadSerializer
+        return TransaccionSerializer
 
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+        serializer = TransaccionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         transaccion = serializer.save()
 
-        score, explicabilidad = predict_fraud(transaccion)
+        score, explicabilidad_str = predict_fraud(transaccion)
+        # explicabilidad viene como JSON string; el JSONField necesita dict
+        try:
+            explicabilidad_dict = json.loads(explicabilidad_str)
+        except (json.JSONDecodeError, TypeError):
+            explicabilidad_dict = {"error": "No se pudo procesar la explicabilidad"}
 
         config, _ = Configuracion.objects.get_or_create(
             id=1, defaults={"umbral_score": 70}
         )
+        incidente_creado = False
         if score >= config.umbral_score:
             incidente = Incidente.objects.create(
                 id_transaccion=transaccion,
                 score_riesgo=score,
-                explicabilidad=explicabilidad,
+                explicabilidad=explicabilidad_dict,
                 estado="Pendiente",
             )
             notify_new_incident(incidente)
+            incidente_creado = True
 
-        headers = self.get_success_headers(serializer.data)
+        # Re-leer la transacción para incluir los ratios guardados
+        transaccion.refresh_from_db()
+        resp = TransaccionReadSerializer(transaccion).data
+        resp["score_riesgo"] = round(score, 2)
+        resp["incidente_generado"] = incidente_creado
+        resp["explicabilidad"] = explicabilidad_dict
+        headers = self.get_success_headers(resp)
         return Response(
-            serializer.data, status=status.HTTP_201_CREATED, headers=headers
+            resp, status=status.HTTP_201_CREATED, headers=headers
         )
 
 
@@ -196,7 +214,7 @@ def dashboard_view(request):
 
     recientes = Incidente.objects.order_by("-fecha")[:8]
 
-    # Fraude por Marca de Tarjeta (Reemplazando Category por Card Brand como mayor insight de DNN)
+    # Fraude por Marca de Tarjeta
     qs_brand = (
         Incidente.objects.filter(estado="Fraude confirmado")
         .values("id_transaccion__card_brand")
@@ -220,25 +238,25 @@ def dashboard_view(request):
     # Fraude por Categoría de Producto
     qs_cat = (
         Incidente.objects.filter(estado="Fraude confirmado")
-        .values("id_transaccion__category")
+        .values("id_transaccion__product_category")
         .annotate(n=Count("id_incidente"), total_monto=Sum("id_transaccion__importe"))
         .order_by("-n")
     )
-    labels_cat = [(r["id_transaccion__category"] or "Otros").capitalize() for r in qs_cat]
+    labels_cat = [(r["id_transaccion__product_category"] or "Otros").capitalize() for r in qs_cat]
     data_cat = [r["n"] for r in qs_cat]
     data_cat_money = [float(r["total_monto"] or 0) for r in qs_cat]
-    
-    # Fraude por Antigüedad (Nuevo vs Recurrente)
-    qs_new = (
+
+    # Fraude por Estado de Transacción
+    qs_txstatus = (
         Incidente.objects.filter(estado="Fraude confirmado")
-        .values("id_transaccion__is_new_customer")
+        .values("id_transaccion__transaction_status")
         .annotate(n=Count("id_incidente"))
     )
-    labels_newcust = []
-    data_newcust = []
-    for r in qs_new:
-        labels_newcust.append("Nuevo" if r["id_transaccion__is_new_customer"] else "Recurrente")
-        data_newcust.append(r["n"])
+    labels_txstatus = []
+    data_txstatus = []
+    for r in qs_txstatus:
+        labels_txstatus.append((r["id_transaccion__transaction_status"] or "Desconocido").capitalize())
+        data_txstatus.append(r["n"])
 
     # Fraude por Uso de 3DS
     qs_3ds = (
@@ -256,6 +274,16 @@ def dashboard_view(request):
         else:
             labels_3ds.append(label)
             data_3ds.append(r["n"])
+
+    # Fraude por Dominio de Email
+    qs_email = (
+        Incidente.objects.filter(estado="Fraude confirmado")
+        .values("id_transaccion__email_domain")
+        .annotate(n=Count("id_incidente"))
+        .order_by("-n")[:10]
+    )
+    labels_email = [(r["id_transaccion__email_domain"] or "Desconocido") for r in qs_email]
+    data_email = [r["n"] for r in qs_email]
             
     # Distribución de score (buckets) 
     buckets = [(0, 20), (20, 40), (40, 60), (60, 80), (80, 100)]
@@ -308,10 +336,12 @@ def dashboard_view(request):
         "serie_pendiente": json.dumps(series["Pendiente"]),
         "serie_fraude": json.dumps(series["Fraude confirmado"]),
         "serie_fp": json.dumps(series["Falso positivo"]),
-        "labels_newcust": json.dumps(labels_newcust),
-        "data_newcust": json.dumps(data_newcust),
+        "labels_txstatus": json.dumps(labels_txstatus),
+        "data_txstatus": json.dumps(data_txstatus),
         "labels_3ds": json.dumps(labels_3ds),
         "data_3ds": json.dumps(data_3ds),
+        "labels_email": json.dumps(labels_email),
+        "data_email": json.dumps(data_email),
     }
     return render(request, "api/dashboard.html", ctx)
 
@@ -381,22 +411,22 @@ def simulacion_view(request):
             "importe": importe,
             "fecha": None,
             "card_brand": (request.POST.get("card_brand") or "visa").strip().lower(),
-            "card_type": (request.POST.get("card_type") or "debit").strip().lower(),
+            "card_type": (request.POST.get("card_type") or "credito").strip().lower(),
             "issuer_bank": (request.POST.get("issuer_bank") or "bcp").strip().lower(),
-            "payment_channel": (request.POST.get("payment_channel") or "web").strip().lower(),
-            "eci_code": int(request.POST.get("eci_code") or 5),
+            "payment_channel": (request.POST.get("payment_channel") or "pago web").strip().lower(),
+            "eci": int(request.POST.get("eci_code") or 5),
             "num_installments": int(request.POST.get("num_installments") or 0),
             "customer_region": (request.POST.get("customer_region") or "lima").strip().lower(),
-            "city_population": int(request.POST.get("city_population") or 0),
-            "is_new_customer": bool(request.POST.get("is_new_customer")),
-            "days_since_first_purchase": int(request.POST.get("days_since_first_purchase") or 0),
-            "avg_historical_amount": float(request.POST.get("avg_historical_amount") or 0),
-            "category": (request.POST.get("category") or "otros").strip().lower(),
+            "product_category": (request.POST.get("product_category") or "otros").strip().lower(),
             "num_items": int(request.POST.get("num_items") or 1),
-            "has_discount": bool(request.POST.get("has_discount")),
-            "previous_failed_attempts": int(request.POST.get("previous_failed_attempts") or 0),
-            "session_duration_minutes": float(request.POST.get("session_duration_minutes")) if request.POST.get("session_duration_minutes") else None,
-            "interaction_velocity": float(request.POST.get("interaction_velocity")) if request.POST.get("interaction_velocity") else None,
+            "discount_amount": float(request.POST.get("discount_amount") or 0),
+            "currency": (request.POST.get("currency") or "PEN").strip().upper(),
+            "email_domain": (request.POST.get("email_domain") or "gmail.com").strip().lower(),
+            "bin": (request.POST.get("bin") or "404700").strip(),
+            "wallet_yape": (request.POST.get("wallet_yape") or "no").strip().lower(),
+            "wallet_plin": (request.POST.get("wallet_plin") or "no").strip().lower(),
+            # Ratios, transaction_status, action_code, denial_reason
+            # son calculados/asignados automáticamente por predict_fraud()
         }
 
         score, explicabilidad = predict_fraud(payload)
@@ -425,13 +455,13 @@ def simulacion_lote_view(request):
             data = archivo.read().decode("utf-8", errors="ignore")
             reader = csv.DictReader(io.StringIO(data))
 
-            expected = {"importe", "card_brand", "card_type", "customer_region", "category"}
+            expected = {"importe", "card_brand", "card_type", "customer_region", "product_category"}
             headers = {h.strip() for h in (reader.fieldnames or [])}
             if not expected.issubset(headers):
                 messages.error(
                     request,
-                    "Cabeceras inválidas. Se esperan: importe,card_brand,card_type,customer_region,category"
-                    " (y opcionalmente: issuer_bank,payment_channel,eci_code,...)",
+                    "Cabeceras inválidas. Se esperan: importe,card_brand,card_type,customer_region,product_category"
+                    " (y opcionalmente: issuer_bank,payment_channel,eci_code,email_domain,...)",
                 )
                 return render(request, "api/simulacion.html", contexto)
 
@@ -451,23 +481,23 @@ def simulacion_lote_view(request):
                 payload = {
                     "importe": importe,
                     "fecha": None,
-                    "card_brand": (row.get("card_brand") or row.get("cardbrand") or "visa").strip().lower(),
-                    "card_type": (row.get("card_type") or row.get("cardtype") or "debit").strip().lower(),
-                    "issuer_bank": (row.get("issuer_bank") or row.get("issuerbank") or "bcp").strip().lower(),
-                    "payment_channel": (row.get("payment_channel") or row.get("paymentchannel") or "web").strip().lower(),
-                    "eci_code": int(row.get("eci_code") or row.get("ecicode") or 5),
-                    "num_installments": int(row.get("num_installments") or row.get("numinstallments") or 0),
-                    "customer_region": (row.get("customer_region") or row.get("customerregion") or "lima").strip().lower(),
-                    "city_population": int(row.get("city_population") or row.get("citypopulation") or 0),
-                    "is_new_customer": parse_bool(row.get("is_new_customer") or row.get("isnewcustomer")),
-                    "days_since_first_purchase": int(row.get("days_since_first_purchase") or row.get("dayssincefirstpurchase") or 0),
-                    "avg_historical_amount": float(row.get("avg_historical_amount") or row.get("avghistoricalamount") or 0),
-                    "category": (row.get("category") or "otros").strip().lower(),
-                    "num_items": int(row.get("num_items") or row.get("numitems") or 1),
-                    "has_discount": parse_bool(row.get("has_discount") or row.get("hasdiscount")),
-                    "previous_failed_attempts": int(row.get("previous_failed_attempts") or row.get("previousfailedattempts") or 0),
-                    "session_duration_minutes": float(row.get("session_duration_minutes") or row.get("sessiondurationminutes")) if row.get("session_duration_minutes") or row.get("sessiondurationminutes") else None,
-                    "interaction_velocity": float(row.get("interaction_velocity") or row.get("interactionvelocity")) if row.get("interaction_velocity") or row.get("interactionvelocity") else None,
+                    "card_brand": (row.get("card_brand") or "visa").strip().lower(),
+                    "card_type": (row.get("card_type") or "credito").strip().lower(),
+                    "issuer_bank": (row.get("issuer_bank") or "bcp").strip().lower(),
+                    "payment_channel": (row.get("payment_channel") or "pago web").strip().lower(),
+                    "eci": int(row.get("eci_code") or row.get("eci") or 5),
+                    "num_installments": int(row.get("num_installments") or 0),
+                    "customer_region": (row.get("customer_region") or "lima").strip().lower(),
+                    "product_category": (row.get("product_category") or row.get("category") or "otros").strip().lower(),
+                    "num_items": int(row.get("num_items") or 1),
+                    "discount_amount": float(row.get("discount_amount") or 0),
+                    "currency": (row.get("currency") or "PEN").strip().upper(),
+                    "email_domain": (row.get("email_domain") or "gmail.com").strip().lower(),
+                    "bin": (row.get("bin") or "404700").strip(),
+                    "wallet_yape": (row.get("wallet_yape") or "no").strip().lower(),
+                    "wallet_plin": (row.get("wallet_plin") or "no").strip().lower(),
+                    # Ratios, transaction_status, action_code, denial_reason
+                    # son calculados/asignados automáticamente por predict_fraud()
                 }
 
                 score, explicabilidad = predict_fraud(payload)

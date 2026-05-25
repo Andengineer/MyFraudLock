@@ -1,0 +1,23 @@
+{
+  "embed_cols": [
+    "issuer_bank",
+    "customer_region",
+    "email_domain",
+    "denial_reason",
+    "bin"
+  ],
+  "embed_dims": [
+    6,
+    6,
+    5,
+    5,
+    8
+  ],
+  "cardinalities": [
+    15,
+    19,
+    15,
+    12,
+    1801
+  ]
+}
