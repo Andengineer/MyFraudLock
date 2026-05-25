@@ -4,8 +4,9 @@ Vistas HTML y API ViewSets para MyFraudLock.
 import csv
 import io
 import json
+import logging
 
-import json
+logger = logging.getLogger(__name__)
 
 from django.contrib import messages
 from django.db.models import Count, Sum
@@ -81,12 +82,23 @@ class TransaccionViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         transaccion = serializer.save()
 
-        score, explicabilidad_str = predict_fraud(transaccion)
-        # explicabilidad viene como JSON string; el JSONField necesita dict
         try:
-            explicabilidad_dict = json.loads(explicabilidad_str)
-        except (json.JSONDecodeError, TypeError):
-            explicabilidad_dict = {"error": "No se pudo procesar la explicabilidad"}
+            score, explicabilidad_str = predict_fraud(transaccion)
+            # explicabilidad viene como JSON string; el JSONField necesita dict
+            try:
+                explicabilidad_dict = json.loads(explicabilidad_str)
+            except (json.JSONDecodeError, TypeError):
+                explicabilidad_dict = {"error": "No se pudo procesar la explicabilidad"}
+        except Exception as e:
+            logger.error("Error en predict_fraud (API create): %s", e, exc_info=True)
+            # Fallback: guardar la transacción sin predicción
+            transaccion.refresh_from_db()
+            resp = TransaccionReadSerializer(transaccion).data
+            resp["score_riesgo"] = None
+            resp["incidente_generado"] = False
+            resp["explicabilidad"] = {"error": f"Error en predicción: {str(e)}"}
+            resp["warning"] = "La transacción fue guardada pero la predicción falló."
+            return Response(resp, status=status.HTTP_201_CREATED)
 
         config, _ = Configuracion.objects.get_or_create(
             id=1, defaults={"umbral_score": 70}
@@ -174,13 +186,22 @@ class SimulacionView(APIView):
 
         resultados = []
         for transaccion in data:
-            score, explicabilidad = predict_fraud(transaccion)
-            resultados.append({
-                "transaccion": transaccion,
-                "score_riesgo": score,
-                "explicabilidad": explicabilidad,
-                "mensaje": "Predicción temporal, no guardada en BD.",
-            })
+            try:
+                score, explicabilidad = predict_fraud(transaccion)
+                resultados.append({
+                    "transaccion": transaccion,
+                    "score_riesgo": score,
+                    "explicabilidad": explicabilidad,
+                    "mensaje": "Predicción temporal, no guardada en BD.",
+                })
+            except Exception as e:
+                logger.error("Error en predict_fraud (SimulacionView): %s", e, exc_info=True)
+                resultados.append({
+                    "transaccion": transaccion,
+                    "score_riesgo": None,
+                    "explicabilidad": {"error": f"Error en predicción: {str(e)}"},
+                    "mensaje": "Error al procesar la predicción.",
+                })
         return Response(resultados, status=status.HTTP_200_OK)
 
 
@@ -429,12 +450,16 @@ def simulacion_view(request):
             # son calculados/asignados automáticamente por predict_fraud()
         }
 
-        score, explicabilidad = predict_fraud(payload)
-        contexto.update({
-            "resultado": {"score_riesgo": score, "explicabilidad": explicabilidad},
-            "active_tab": "individual",
-        })
-        messages.success(request, "Simulación de riesgo individual procesada.")
+        try:
+            score, explicabilidad = predict_fraud(payload)
+            contexto.update({
+                "resultado": {"score_riesgo": score, "explicabilidad": explicabilidad},
+                "active_tab": "individual",
+            })
+            messages.success(request, "Simulación de riesgo individual procesada.")
+        except Exception as e:
+            logger.error("Error en predict_fraud (simulacion_view): %s", e, exc_info=True)
+            messages.error(request, f"Error al procesar la simulación: {e}")
 
     return render(request, "api/simulacion.html", contexto)
 
@@ -500,12 +525,22 @@ def simulacion_lote_view(request):
                     # son calculados/asignados automáticamente por predict_fraud()
                 }
 
-                score, explicabilidad = predict_fraud(payload)
-                resultados.append({
-                    **payload,
-                    "score_riesgo": score,
-                    "explicabilidad": explicabilidad,
-                })
+                try:
+                    score, explicabilidad = predict_fraud(payload)
+                    resultados.append({
+                        **payload,
+                        "score_riesgo": score,
+                        "explicabilidad": explicabilidad,
+                    })
+                except Exception as e:
+                    logger.error("Error en predict_fraud (simulacion_lote): %s", e, exc_info=True)
+                    resultados.append({
+                        **payload,
+                        "score_riesgo": 0,
+                        "explicabilidad": {"error": f"Error en predicción: {str(e)}"},
+                        "mensaje_error": "Falló la predicción para esta fila."
+                    })
+
 
             resultados.sort(key=lambda x: x["score_riesgo"], reverse=True)
             contexto.update({"resultados": resultados, "active_tab": "lote"})

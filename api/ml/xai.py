@@ -13,11 +13,18 @@ Categorías OHE (low-card): card_brand, card_type, currency, transaction_status,
 Categorías Embedding (high-card): issuer_bank, customer_region, email_domain,
     denial_reason, bin
 """
+import logging
+import signal
 from pathlib import Path
 import json, numpy as np, pandas as pd
 from joblib import load
 import shap
 import tensorflow as tf
+
+logger = logging.getLogger(__name__)
+
+# Timeout (segundos) para la explicabilidad SHAP
+SHAP_TIMEOUT_SECONDS = 45
 
 # --- SHIM de compatibilidad scikit-learn 1.6.x -> 1.7.x ---
 # Evita: AttributeError: Can't get attribute '_RemainderColsList' ...
@@ -199,10 +206,10 @@ def _init_explainer():
         return
 
     bg = _background
-    # Submuestrear si background es muy grande
-    if bg.shape[0] > 100:
+    # Submuestrear si background es muy grande (reducido a 50 para evitar timeouts)
+    if bg.shape[0] > 50:
         rng = np.random.default_rng(42)
-        idx = rng.choice(bg.shape[0], 100, replace=False)
+        idx = rng.choice(bg.shape[0], 50, replace=False)
         bg = bg[idx]
 
     _explainer = shap.KernelExplainer(
@@ -303,41 +310,64 @@ def _aggregate(feature_contrib: dict) -> dict:
     return agg
 
 
-def predict_and_explain(payload: dict, top_k: int = 6, aggregate: bool = True):
+class _ShapTimeoutError(Exception):
+    """Error lanzado cuando SHAP excede el tiempo límite."""
+    pass
+
+
+def _shap_timeout_handler(signum, frame):
+    raise _ShapTimeoutError("SHAP computation timed out")
+
+
+def _compute_shap_safe(X_full, nsamples=50):
     """
-    Recibe un dict con las features crudas y retorna (score, explanation).
-
-    payload debe contener claves coincidentes con ALL_FEATURES:
-      transaction_amount, discount_amount, tx_hour, tx_day_of_week, tx_month,
-      eci, action_code, num_installments, num_items,
-      AAR, CMR, ASI, VRR, DAR, CSI, DPE,
-      card_brand, card_type, currency, transaction_status, payment_channel,
-      wallet_yape, wallet_plin, product_category,
-      issuer_bank, customer_region, email_domain, denial_reason, bin
+    Calcula SHAP values con protección contra timeout y errores.
+    Retorna shap_values o None si falla.
     """
-    _ensure_artifacts()
-
-    # 1. Predicción con modelo multi-input
-    df = pd.DataFrame([payload])
-    inputs = _build_multi_inputs(df)
-    prob = float(_model.predict(inputs, verbose=0).ravel()[0])
-    score = float(prob * 100)
-
-    # 2. SHAP values sobre representación OHE completa
     _init_explainer()
-    X_full = _transform_full(payload)
-    shap_vals = _explainer.shap_values(X_full, nsamples=100)
-    sv = shap_vals[0] if isinstance(shap_vals, list) else shap_vals
-    sv = np.squeeze(sv)
 
-    contrib = {name: float(sv[i]) for i, name in enumerate(_feature_names)}
+    old_handler = None
+    try:
+        # Configurar timeout solo en el hilo principal (Linux)
+        try:
+            old_handler = signal.signal(signal.SIGALRM, _shap_timeout_handler)
+            signal.alarm(SHAP_TIMEOUT_SECONDS)
+        except (ValueError, AttributeError, OSError):
+            # signal.alarm no disponible en threads secundarios o Windows
+            old_handler = None
 
-    if aggregate:
-        contrib = _aggregate(contrib)
+        shap_vals = _explainer.shap_values(X_full, nsamples=nsamples)
 
-    ordered = sorted(contrib.items(), key=lambda kv: abs(kv[1]), reverse=True)[:top_k]
+        # Cancelar alarma si terminó a tiempo
+        try:
+            signal.alarm(0)
+        except (ValueError, AttributeError, OSError):
+            pass
 
-    # 3. Añadir nombres legibles y lógica de negocio
+        return shap_vals
+
+    except _ShapTimeoutError:
+        logger.warning("SHAP computation timed out after %ds — returning prediction only.",
+                       SHAP_TIMEOUT_SECONDS)
+        return None
+    except Exception as e:
+        logger.error("SHAP computation failed: %s", e, exc_info=True)
+        return None
+    finally:
+        # Restaurar handler original y cancelar alarma
+        try:
+            signal.alarm(0)
+            if old_handler is not None:
+                signal.signal(signal.SIGALRM, old_handler)
+        except (ValueError, AttributeError, OSError):
+            pass
+
+
+def _build_business_explanation(ordered, payload):
+    """
+    Genera las reglas de negocio para los factores más importantes.
+    Separada para reutilizar tanto con SHAP como con fallback.
+    """
     factors = []
     explicacion_negocio = []
 
@@ -431,11 +461,119 @@ def predict_and_explain(payload: dict, top_k: int = 6, aggregate: bool = True):
 
     # Deduplicar
     explicacion_negocio = list(dict.fromkeys(explicacion_negocio))
+    return factors, explicacion_negocio
 
-    explanation = {
-        "top_factors": factors,
-        "explicacion_negocio": explicacion_negocio,
-        "sum_abs": float(sum(abs(v) for v in contrib.values())),
-        "prob": round(prob, 6),
-    }
+
+def predict_and_explain(payload: dict, top_k: int = 6, aggregate: bool = True):
+    """
+    Recibe un dict con las features crudas y retorna (score, explanation).
+
+    payload debe contener claves coincidentes con ALL_FEATURES:
+      transaction_amount, discount_amount, tx_hour, tx_day_of_week, tx_month,
+      eci, action_code, num_installments, num_items,
+      AAR, CMR, ASI, VRR, DAR, CSI, DPE,
+      card_brand, card_type, currency, transaction_status, payment_channel,
+      wallet_yape, wallet_plin, product_category,
+      issuer_bank, customer_region, email_domain, denial_reason, bin
+
+    Si SHAP falla o excede el tiempo, retorna el score sin desglose SHAP
+    pero con reglas de negocio basadas en los valores de los ratios.
+    """
+    _ensure_artifacts()
+
+    # 1. Predicción con modelo multi-input
+    df = pd.DataFrame([payload])
+    inputs = _build_multi_inputs(df)
+    prob = float(_model.predict(inputs, verbose=0).ravel()[0])
+    score = float(prob * 100)
+
+    # 2. SHAP values sobre representación OHE completa (con protección)
+    X_full = _transform_full(payload)
+    shap_vals = _compute_shap_safe(X_full, nsamples=50)
+
+    if shap_vals is not None:
+        sv = shap_vals[0] if isinstance(shap_vals, list) else shap_vals
+        sv = np.squeeze(sv)
+        contrib = {name: float(sv[i]) for i, name in enumerate(_feature_names)}
+
+        if aggregate:
+            contrib = _aggregate(contrib)
+
+        ordered = sorted(contrib.items(), key=lambda kv: abs(kv[1]), reverse=True)[:top_k]
+        factors, explicacion_negocio = _build_business_explanation(ordered, payload)
+
+        explanation = {
+            "top_factors": factors,
+            "explicacion_negocio": explicacion_negocio,
+            "sum_abs": float(sum(abs(v) for v in contrib.values())),
+            "prob": round(prob, 6),
+        }
+    else:
+        # Fallback: sin SHAP, generar explicación basada en reglas de negocio
+        logger.warning("Falling back to rule-based explanation (SHAP unavailable).")
+        fallback_contrib = _rule_based_fallback(payload)
+        ordered = sorted(fallback_contrib.items(), key=lambda kv: abs(kv[1]), reverse=True)[:top_k]
+        factors, explicacion_negocio = _build_business_explanation(ordered, payload)
+
+        explanation = {
+            "top_factors": factors,
+            "explicacion_negocio": explicacion_negocio,
+            "sum_abs": float(sum(abs(v) for v in fallback_contrib.values())),
+            "prob": round(prob, 6),
+            "shap_fallback": True,
+        }
+
     return score, explanation
+
+
+def _rule_based_fallback(payload: dict) -> dict:
+    """
+    Genera contribuciones aproximadas basadas en heurísticas de negocio
+    cuando SHAP no está disponible. Los valores son indicativos, no
+    valores SHAP reales.
+    """
+    contrib = {}
+
+    # AAR — montos altos vs promedio
+    aar = float(payload.get("AAR", 1.0))
+    contrib["AAR"] = min((aar - 1.0) * 0.05, 0.3) if aar > 1.5 else 0.0
+
+    # CMR — monto vs mediana de categoría
+    cmr = float(payload.get("CMR", 1.0))
+    contrib["CMR"] = min((cmr - 1.0) * 0.04, 0.25) if cmr > 2.0 else 0.0
+
+    # VRR — velocidad
+    vrr = float(payload.get("VRR", 1.0))
+    contrib["VRR"] = min((vrr - 1.0) * 0.03, 0.3) if vrr > 5.0 else 0.0
+
+    # DAR — ratio de denegaciones
+    dar = float(payload.get("DAR", 0.0))
+    contrib["DAR"] = dar * 0.2 if dar > 0.2 else 0.0
+
+    # ASI — autenticación débil
+    asi = float(payload.get("ASI", 0.5))
+    contrib["ASI"] = (0.5 - asi) * 0.1 if asi < 0.3 else 0.0
+
+    # CSI — tarjeta compartida
+    csi = float(payload.get("CSI", 1.0))
+    contrib["CSI"] = (csi - 1.0) * 0.05 if csi > 1 else 0.0
+
+    # DPE — entropía de denegaciones
+    dpe = float(payload.get("DPE", 0.0))
+    contrib["DPE"] = dpe * 0.08 if dpe > 0.5 else 0.0
+
+    # ECI
+    eci = int(payload.get("eci", 5))
+    contrib["eci"] = 0.06 if eci not in (2, 5) else -0.02
+
+    # Monto
+    amt = float(payload.get("transaction_amount", 0))
+    contrib["transaction_amount"] = min(amt / 10000, 0.15) if amt > 500 else 0.0
+
+    # Email temporal
+    domain = str(payload.get("email_domain", "")).lower()
+    temp_domains = {"10minutemail.com", "guerrillamail.com", "mailinator.com",
+                    "tempmail.com", "yopmail.com"}
+    contrib["email_domain"] = 0.08 if domain in temp_domains else 0.0
+
+    return contrib
