@@ -1,0 +1,78 @@
+================================================================
+  MyFraudLock  -  Sistema Antifraude con Deep Learning
+  Guia rapida de instalacion y ejecucion (Windows)
+================================================================
+
+REQUISITOS PREVIOS
+------------------
+1. Tener instalado Python 3.10 o superior.
+   Descarga: https://www.python.org/downloads/
+   IMPORTANTE: al instalar marca la casilla "Add Python to PATH".
+
+INSTALACION Y EJECUCION (1 SOLO PASO)
+-------------------------------------
+1. Descomprime el .zip en una carpeta cualquiera.
+2. Haz DOBLE CLICK en el archivo:
+
+       iniciar_MyFraudLock.bat
+
+3. El script hara automaticamente todo esto:
+   - Crear el entorno virtual .venv
+   - Instalar las dependencias (requirements.txt)
+   - Aplicar migraciones de base de datos
+   - Crear un usuario administrador por defecto
+   - Iniciar el servidor Django
+   - Abrir el navegador en la pantalla de login
+
+   La PRIMERA ejecucion puede tardar 5-10 minutos (descarga
+   librerias de ML como tensorflow y shap). Las siguientes
+   ejecuciones inician en menos de 30 segundos.
+
+ACCESO AL SISTEMA
+-----------------
+URL:      http://127.0.0.1:8000/api/login/
+Usuario:  admin
+Clave:    Admin123
+
+(Se recomienda cambiar la contrasena al primer inicio de sesion)
+
+ROLES DISPONIBLES
+-----------------
+- ADMIN     : acceso total (gestion de usuarios, configuracion)
+- ANALISTA  : gestion de incidentes, simulacion de riesgo
+- GERENTE   : solo lectura del dashboard
+
+DETENER EL SERVIDOR
+-------------------
+Presiona Ctrl + C en la ventana de consola, o simplemente cierra
+la ventana del .bat.
+
+DATOS DE PRUEBA (OPCIONAL)
+--------------------------
+Para poblar la base de datos con transacciones simuladas:
+
+   1. Mantener el .bat detenido.
+   2. Abrir cmd en la carpeta del proyecto.
+   3. Ejecutar:
+        .venv\Scripts\activate
+        python seed_data.py
+
+PROBLEMAS COMUNES
+-----------------
+* "python no se reconoce como un comando":
+  -> Python no esta instalado o no esta en el PATH.
+     Reinstalalo marcando "Add Python to PATH".
+
+* "Error al instalar tensorflow":
+  -> Verifica que Python sea version 3.10 - 3.12 (tensorflow
+     puede tener problemas con versiones muy nuevas o muy viejas).
+
+* La pagina no carga:
+  -> Verifica que el puerto 8000 no este ocupado por otra
+     aplicacion. Cierra otros servidores web locales.
+
+CONTACTO
+--------
+Para mas detalles tecnicos consulta:
+   zArtefactosTesis/  ->  diagramas, requisitos y plan de pruebas
+   api_testing_guide.md  ->  guia de testing del API REST
