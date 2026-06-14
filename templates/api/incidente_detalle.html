@@ -319,7 +319,7 @@
             factors.forEach(f => {
                 const color = f.impact >= 0 ? 'var(--status-fraud)' : 'var(--status-ok)';
                 const sign = f.impact >= 0 ? '+' : '';
-                tableHtml += `<tr><td class="ps-3 fw-medium">${f.display_name} <span class="text-muted small ms-1">(${f.feature})</span></td><td class="text-end pe-3 fw-bold" style="color:${color};">${sign}${f.impact.toFixed(4)}</td></tr>`;
+                tableHtml += `<tr><td class="ps-3 fw-medium">${f.display_name}</td><td class="text-end pe-3 fw-bold" style="color:${color};">${sign}${f.impact.toFixed(4)}</td></tr>`;
             });
             tableHtml += `</tbody></table></div>`;
             document.getElementById('tabularData').innerHTML = tableHtml;

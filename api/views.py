@@ -56,6 +56,32 @@ def _allowed_roles_for_request(request):
     return [{"value": r, "label": ROLE_LABELS.get(r, r)} for r in roles]
 
 
+def validar_telefono(telefono):
+    """Valida un número telefónico opcional.
+
+    Acepta vacío (el teléfono no es obligatorio). Si se ingresa, debe contener
+    únicamente dígitos (se permiten + inicial, espacios y guiones como separadores
+    de formato) y tener entre 7 y 15 dígitos.
+
+    Devuelve (telefono_normalizado, error). Si error es None la validación pasó.
+    """
+    if not telefono:
+        return None, None
+
+    # Quitar separadores de formato comunes
+    limpio = telefono.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+    if limpio.startswith("+"):
+        limpio = limpio[1:]
+
+    if not limpio.isdigit():
+        return telefono, "El teléfono solo puede contener números."
+
+    if not (7 <= len(limpio) <= 15):
+        return telefono, "El teléfono debe tener entre 7 y 15 dígitos."
+
+    return telefono, None
+
+
 # ---------------------------------------------------------------------------
 # API REST — ViewSets
 # ---------------------------------------------------------------------------
@@ -722,6 +748,11 @@ def register_view(request):
             messages.error(request, "La contraseña debe tener al menos 6 caracteres.")
             return render(request, "api/register.html", form_ctx)
 
+        telefono, tel_error = validar_telefono(telefono)
+        if tel_error:
+            messages.error(request, tel_error)
+            return render(request, "api/register.html", form_ctx)
+
         if Usuario.objects.filter(username=username).exists():
             messages.error(request, "El nombre de usuario ya está en uso.")
             form_ctx.pop("username", None)
@@ -795,12 +826,16 @@ def usuario_create_view(request):
         password2 = (request.POST.get("password2") or "").strip()
         rol = (request.POST.get("rol") or "ANALISTA").strip().upper()
 
+        telefono, tel_error = validar_telefono(telefono)
+
         if not username or not email or not password:
             messages.error(request, "Completa todos los campos requeridos.")
         elif password != password2:
             messages.error(request, "Las contraseñas no coinciden.")
         elif len(password) < 6:
             messages.error(request, "La contraseña debe tener al menos 6 caracteres.")
+        elif tel_error:
+            messages.error(request, tel_error)
         elif Usuario.objects.filter(username=username).exists():
             messages.error(request, "Nombre de usuario ya en uso.")
         elif Usuario.objects.filter(email=email).exists():
@@ -841,8 +876,12 @@ def usuario_edit_view(request, usuario_id):
         rol = (request.POST.get("rol") or usuario.rol).strip().upper()
         activo = bool(request.POST.get("activo"))
 
+        telefono, tel_error = validar_telefono(telefono)
+
         if not email:
             messages.error(request, "El email es requerido.")
+        elif tel_error:
+            messages.error(request, tel_error)
         elif Usuario.objects.filter(email=email).exclude(id_usuario=usuario_id).exists():
             messages.error(request, "Email ya registrado por otro usuario.")
         else:

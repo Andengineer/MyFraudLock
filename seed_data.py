@@ -11,7 +11,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "MyFraudLock.settings")
 django.setup()
 
 from django.utils import timezone
-from api.models import Transaccion, Incidente, Configuracion
+from api.models import Transaccion, Incidente, Configuracion, Usuario
 
 # ── Limpiar todo ─────────────────────────────────────────────────────
 print("🗑️  Eliminando incidentes y transacciones existentes...")
@@ -134,6 +134,9 @@ print("\n🚨 Generando incidentes...")
 estados_fraud = ["Fraude confirmado"] * 12 + ["Pendiente"] * 5 + ["Falso positivo"] * 3
 random.shuffle(estados_fraud)
 
+# Analistas/Admins que pueden gestionar incidentes (para trazabilidad).
+gestores = list(Usuario.objects.filter(rol__in=["ANALISTA", "ADMIN"], activo=True))
+
 fraud_txs = [t for kind, t in created_tx if kind == "fraud"]
 for i, tx in enumerate(fraud_txs):
     tx.refresh_from_db()
@@ -170,11 +173,16 @@ for i, tx in enumerate(fraud_txs):
         "sum_abs": round(sum(f["impact"] for f in top_factors), 4),
     }
 
+    # Un incidente resuelto (confirmado / falso positivo) siempre debe registrar
+    # qué analista lo gestionó. Los pendientes quedan sin gestor.
+    gestor = random.choice(gestores) if (gestores and estado != "Pendiente") else None
+
     inc = Incidente.objects.create(
         id_transaccion=tx,
         score_riesgo=Decimal(str(score)),
         explicabilidad=explicabilidad,
         estado=estado,
+        gestionado_por=gestor,
         comentario="Evaluación automática del sistema DAFD-Net" if estado != "Pendiente" else "",
     )
     # Override fecha

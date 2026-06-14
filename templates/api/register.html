@@ -221,8 +221,10 @@
                         </div>
                         <div class="input-wrap">
                             <label for="id_telefono">Teléfono (opcional)</label>
-                            <input type="text" class="input-field" id="id_telefono" name="telefono"
-                                   value="{{ telefono|default:'' }}" placeholder="999888777">
+                            <input type="tel" class="input-field" id="id_telefono" name="telefono"
+                                   value="{{ telefono|default:'' }}" placeholder="999888777"
+                                   inputmode="numeric" pattern="\+?[0-9\s\-()]{7,20}" maxlength="20"
+                                   title="Solo números, entre 7 y 15 dígitos.">
                         </div>
                     </div>
 

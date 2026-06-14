@@ -41,11 +41,11 @@
             </div>
             <div class="col-sm-6 col-lg-2">
                 <label class="form-label mb-1 small fw-semibold">Desde</label>
-                <input id="desdeFilter" type="date" class="form-control">
+                <input id="desdeFilter" type="date" class="form-control" min="2000-01-01" max="2100-12-31">
             </div>
             <div class="col-sm-6 col-lg-2">
                 <label class="form-label mb-1 small fw-semibold">Hasta</label>
-                <input id="hastaFilter" type="date" class="form-control">
+                <input id="hastaFilter" type="date" class="form-control" min="2000-01-01" max="2100-12-31">
             </div>
             <div class="col-sm-6 col-lg-2 d-flex gap-2">
                 <button type="button" class="btn btn-outline-secondary flex-grow-1" id="limpiarBtn">Limpiar</button>
@@ -54,6 +54,9 @@
                 </button>
             </div>
         </form>
+        <div id="filtroAviso" class="alert alert-warning d-none mt-3 mb-0 py-2 px-3" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-1"></i><span id="filtroAvisoMsg"></span>
+        </div>
     </div>
 </div>
 
@@ -153,6 +156,39 @@
     const tbody        = tabla.querySelector('tbody');
     const countLabel   = $('#countLabel');
     const paginador    = $('#paginador');
+    const filtroAviso    = $('#filtroAviso');
+    const filtroAvisoMsg = $('#filtroAvisoMsg');
+
+    // Limitar el rango seleccionable a fechas razonables (hoy como máximo)
+    const hoyISO = new Date().toISOString().slice(0, 10);
+    desdeFilter.max = hoyISO;
+    hastaFilter.max = hoyISO;
+
+    // Valida una fecha del filtro: debe tener formato YYYY-MM-DD con año de 4
+    // dígitos dentro de un rango razonable. Devuelve {valor, error}.
+    function parseFiltroFecha(val) {
+        if (!val) return { valor: null, error: null };
+        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(val);
+        if (!m) return { valor: null, error: 'La fecha ingresada no es válida (el año debe tener 4 dígitos).' };
+        const anio = Number(m[1]);
+        if (anio < 2000 || anio > 2100) {
+            return { valor: null, error: 'El año de la fecha está fuera de rango (2000–2100).' };
+        }
+        return { valor: val, error: null };
+    }
+
+    // Valida el rango Desde/Hasta completo. Devuelve {d1, d2, error}.
+    // Si hay error, d1/d2 se devuelven nulos para no aplicar un filtro engañoso.
+    function validarFiltrosFecha() {
+        const rd = parseFiltroFecha(desdeFilter.value);
+        if (rd.error) return { d1: null, d2: null, error: rd.error };
+        const rh = parseFiltroFecha(hastaFilter.value);
+        if (rh.error) return { d1: null, d2: null, error: rh.error };
+        if (rd.valor && rh.valor && rd.valor > rh.valor) {
+            return { d1: null, d2: null, error: 'La fecha "Desde" no puede ser posterior a la fecha "Hasta".' };
+        }
+        return { d1: rd.valor, d2: rh.valor, error: null };
+    }
 
     let sortField = null, sortDir = 'desc', page = 1;
     const allRows = Array.from(tbody.querySelectorAll('tr'));
@@ -170,8 +206,7 @@
     function applyFilters() {
         const q   = (buscarInput.value || '').toLowerCase().trim();
         const est = estadoFilter.value;
-        const d1  = desdeFilter.value || null;
-        const d2  = hastaFilter.value || null;
+        const { d1, d2 } = validarFiltrosFecha();
 
         let rows = allRows.filter(tr =>
             matchSearch(tr, q) && matchEstado(tr, est) && matchFechas(tr, d1, d2)
@@ -191,6 +226,15 @@
     }
 
     function render() {
+        // Mostrar/ocultar aviso de validación de fechas
+        const { error: fechaError } = validarFiltrosFecha();
+        if (fechaError) {
+            filtroAvisoMsg.textContent = fechaError;
+            filtroAviso.classList.remove('d-none');
+        } else {
+            filtroAviso.classList.add('d-none');
+        }
+
         const pageSize = Number(pageSizeSel.value);
         const filtered = applyFilters();
         const total = filtered.length;

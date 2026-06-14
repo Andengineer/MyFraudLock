@@ -66,8 +66,11 @@
 
                     <div class="col-md-4">
                         <label for="telefono" class="form-label fw-semibold">Teléfono</label>
-                        <input type="text" class="form-control" id="telefono" name="telefono"
-                               value="{{ usuario.telefono|default:'' }}" placeholder="999888777">
+                        <input type="tel" class="form-control" id="telefono" name="telefono"
+                               value="{{ usuario.telefono|default:'' }}" placeholder="999888777"
+                               inputmode="numeric" pattern="\+?[0-9\s\-()]{7,20}" maxlength="20"
+                               title="Solo números, entre 7 y 15 dígitos.">
+                        <div class="form-text text-muted">Solo números (7 a 15 dígitos).</div>
                     </div>
 
                     <div class="col-md-4">
