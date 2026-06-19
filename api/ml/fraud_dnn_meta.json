@@ -1,0 +1,92 @@
+{
+  "numeric": [
+    "eci",
+    "codigo_de_accion",
+    "importe_pedido",
+    "numero_de_cuotas",
+    "cantidad_items",
+    "tiene_cupon",
+    "billing_mismatch",
+    "weekend_night_flag",
+    "phone_format_valid",
+    "tx_hour",
+    "C1_AAR",
+    "C2_CMR",
+    "C3_ASI",
+    "C4_VRR",
+    "C5_DAR",
+    "C6_CSI",
+    "C7_DPE"
+  ],
+  "low_card": [
+    "marca",
+    "tipo_de_tarjeta",
+    "canal_pago",
+    "metodo_envio",
+    "pago_con_yape",
+    "pago_con_plin"
+  ],
+  "high_card": [
+    "emisor",
+    "region_cliente",
+    "categoria_producto"
+  ],
+  "all_features": [
+    "eci",
+    "codigo_de_accion",
+    "importe_pedido",
+    "numero_de_cuotas",
+    "cantidad_items",
+    "tiene_cupon",
+    "billing_mismatch",
+    "weekend_night_flag",
+    "phone_format_valid",
+    "tx_hour",
+    "C1_AAR",
+    "C2_CMR",
+    "C3_ASI",
+    "C4_VRR",
+    "C5_DAR",
+    "C6_CSI",
+    "C7_DPE",
+    "marca",
+    "tipo_de_tarjeta",
+    "canal_pago",
+    "metodo_envio",
+    "pago_con_yape",
+    "pago_con_plin",
+    "emisor",
+    "region_cliente",
+    "categoria_producto"
+  ],
+  "target": "heuristic_label",
+  "group_a": [
+    "eci",
+    "codigo_de_accion",
+    "importe_pedido",
+    "numero_de_cuotas",
+    "cantidad_items",
+    "marca",
+    "tipo_de_tarjeta",
+    "canal_pago",
+    "pago_con_yape",
+    "pago_con_plin",
+    "metodo_envio",
+    "tiene_cupon"
+  ],
+  "group_b": [
+    "billing_mismatch",
+    "weekend_night_flag",
+    "phone_format_valid",
+    "tx_hour"
+  ],
+  "group_c": [
+    "C1_AAR",
+    "C2_CMR",
+    "C3_ASI",
+    "C4_VRR",
+    "C5_DAR",
+    "C6_CSI",
+    "C7_DPE"
+  ]
+}

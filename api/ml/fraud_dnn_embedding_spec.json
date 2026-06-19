@@ -1,0 +1,14 @@
+{
+  "emisor": {
+    "n_categories": 20,
+    "embedding_dim": 10
+  },
+  "region_cliente": {
+    "n_categories": 24,
+    "embedding_dim": 12
+  },
+  "categoria_producto": {
+    "n_categories": 8,
+    "embedding_dim": 4
+  }
+}

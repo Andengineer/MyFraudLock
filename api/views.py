@@ -322,15 +322,15 @@ def dashboard_view(request):
             labels_3ds.append(label)
             data_3ds.append(r["n"])
 
-    # Fraude por Dominio de Email
-    qs_email = (
+    # Fraude por Banco Emisor (emisor es una feature del modelo FraudDNN)
+    qs_issuer = (
         Incidente.objects.filter(estado="Fraude confirmado")
-        .values("id_transaccion__email_domain")
+        .values("id_transaccion__issuer_bank")
         .annotate(n=Count("id_incidente"))
         .order_by("-n")[:10]
     )
-    labels_email = [(r["id_transaccion__email_domain"] or "Desconocido") for r in qs_email]
-    data_email = [r["n"] for r in qs_email]
+    labels_issuer = [(r["id_transaccion__issuer_bank"] or "Desconocido").upper() for r in qs_issuer]
+    data_issuer = [r["n"] for r in qs_issuer]
             
     # Distribución de score (buckets) 
     buckets = [(0, 20), (20, 40), (40, 60), (60, 80), (80, 100)]
@@ -387,8 +387,8 @@ def dashboard_view(request):
         "data_txstatus": json.dumps(data_txstatus),
         "labels_3ds": json.dumps(labels_3ds),
         "data_3ds": json.dumps(data_3ds),
-        "labels_email": json.dumps(labels_email),
-        "data_email": json.dumps(data_email),
+        "labels_issuer": json.dumps(labels_issuer),
+        "data_issuer": json.dumps(data_issuer),
     }
     return render(request, "api/dashboard.html", ctx)
 
@@ -472,9 +472,18 @@ def simulacion_view(request):
             "bin": (request.POST.get("bin") or "404700").strip(),
             "wallet_yape": (request.POST.get("wallet_yape") or "no").strip().lower(),
             "wallet_plin": (request.POST.get("wallet_plin") or "no").strip().lower(),
-            # Ratios, transaction_status, action_code, denial_reason
-            # son calculados/asignados automáticamente por predict_fraud()
+            # transaction_status, action_code y denial_reason se asignan por defecto
         }
+
+        # Ratios de comportamiento opcionales (para simular escenarios de riesgo).
+        # Si se envían, predict_fraud los usa; si no, los calcula del historial.
+        for rk in ("aar", "cmr", "asi", "vrr", "dar", "csi", "dpe"):
+            v = request.POST.get(rk)
+            if v not in (None, ""):
+                try:
+                    payload[rk.upper()] = float(v)
+                except ValueError:
+                    pass
 
         try:
             score, explicabilidad = predict_fraud(payload)
@@ -547,9 +556,17 @@ def simulacion_lote_view(request):
                     "bin": (row.get("bin") or "404700").strip(),
                     "wallet_yape": (row.get("wallet_yape") or "no").strip().lower(),
                     "wallet_plin": (row.get("wallet_plin") or "no").strip().lower(),
-                    # Ratios, transaction_status, action_code, denial_reason
-                    # son calculados/asignados automáticamente por predict_fraud()
+                    # transaction_status, action_code y denial_reason se asignan por defecto
                 }
+
+                # Ratios opcionales desde el CSV (si vienen, se usan; si no, se calculan)
+                for rk in ("aar", "cmr", "asi", "vrr", "dar", "csi", "dpe"):
+                    v = row.get(rk)
+                    if v not in (None, ""):
+                        try:
+                            payload[rk.upper()] = float(v)
+                        except ValueError:
+                            pass
 
                 try:
                     score, explicabilidad = predict_fraud(payload)

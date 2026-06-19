@@ -207,9 +207,10 @@ def build_incidente_detalle_pdf(incidente):
             ["Canal de Pago", tx.payment_channel.title() if tx.payment_channel else "—"],
             ["Código ECI", str(tx.eci_code)],
             ["Región", tx.customer_region.title() if tx.customer_region else "—"],
-            ["Categoría", tx.category or "—"],
+            ["Categoría", tx.product_category or tx.category or "—"],
             ["Nro. Ítems", str(tx.num_items)],
-            ["Intentos fallidos", str(tx.previous_failed_attempts)],
+            ["Ratio Denegación (DAR)", str(tx.ratio_dar)],
+            ["Ratio Monto/Mediana (CMR)", str(tx.ratio_cmr)],
         ]
         t2 = Table(tx_info, colWidths=[50 * mm, 110 * mm])
         t2.setStyle(TABLE_STYLE)

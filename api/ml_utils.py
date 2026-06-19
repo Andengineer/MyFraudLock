@@ -1,7 +1,8 @@
 # api/ml_utils.py
 """
-Utilidades ML para detección de fraude — DAFD-Net.
-Calcula ratios financieros en tiempo real y ejecuta predicción.
+Utilidades ML para detección de fraude — FraudDNN (modelo del paper, PyTorch).
+Calcula los ratios financieros en tiempo real, arma el payload de la transacción
+y delega la predicción + explicabilidad (SHAP) en api/ml/xai.py.
 """
 import json
 from math import log2
@@ -182,8 +183,14 @@ def predict_fraud(tx):
     bin_val          = str(get("bin") or "404700").strip()
     last_4           = str(get("last_4_digits") or "0000").strip()
 
-    # ── Ratios financieros (calculados automáticamente) ─────────────
-    ratios = _compute_ratios(amt, bin_val, product_category, eci, last_4)
+    # ── Ratios: usar los provistos (p. ej. simulación de escenarios) o
+    #    calcularlos del historial del BIN en la base de datos ─────────
+    _RATIO_KEYS = ("AAR", "CMR", "ASI", "VRR", "DAR", "CSI", "DPE")
+    _provided = {k: get(k) for k in _RATIO_KEYS}
+    if all(_provided[k] is not None and str(_provided[k]).strip() != "" for k in _RATIO_KEYS):
+        ratios = {k: float(_provided[k]) for k in _RATIO_KEYS}
+    else:
+        ratios = _compute_ratios(amt, bin_val, product_category, eci, last_4)
 
     payload = {
         # Numéricas

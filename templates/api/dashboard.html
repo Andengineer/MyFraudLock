@@ -141,9 +141,9 @@
     <div class="col-lg-4">
         <div class="card border-0 shadow-sm h-100" style="border-radius: var(--radius-lg);">
             <div class="card-header bg-white border-0 pt-4 pb-2">
-                <h6 class="fw-bold mb-0"><i class="bi bi-envelope-at me-2 text-danger"></i>Top Dominios Email (Fraude)</h6>
+                <h6 class="fw-bold mb-0"><i class="bi bi-bank me-2 text-danger"></i>Fraude por Banco Emisor</h6>
             </div>
-            <div class="card-body"><canvas id="chartEmail" height="150"></canvas></div>
+            <div class="card-body"><canvas id="chartIssuer" height="150"></canvas></div>
         </div>
     </div>
 </div>
@@ -250,8 +250,8 @@
     const dataTxStatus = JSON.parse('{{ data_txstatus|escapejs|default:"[]" }}');
     const labels3ds = JSON.parse('{{ labels_3ds|escapejs|default:"[]" }}');
     const data3ds = JSON.parse('{{ data_3ds|escapejs|default:"[]" }}');
-    const labelsEmail = JSON.parse('{{ labels_email|escapejs|default:"[]" }}');
-    const dataEmail = JSON.parse('{{ data_email|escapejs|default:"[]" }}');
+    const labelsIssuer = JSON.parse('{{ labels_issuer|escapejs|default:"[]" }}');
+    const dataIssuer = JSON.parse('{{ data_issuer|escapejs|default:"[]" }}');
 
     const mkBar = (id, labels, data, color, fmtFunc) => new Chart(document.getElementById(id), {
         type: 'bar',
@@ -354,7 +354,7 @@
         }
     });
 
-    // Email domain bar
-    mkBar('chartEmail', labelsEmail, dataEmail, colorsFor(labelsEmail.length), (ctx) => `Incidentes: ${ctx.parsed.y}`);
+    // Banco Emisor bar
+    mkBar('chartIssuer', labelsIssuer, dataIssuer, colorsFor(labelsIssuer.length), (ctx) => `Incidentes: ${ctx.parsed.y}`);
 </script>
 {% endblock %}

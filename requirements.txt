@@ -12,7 +12,7 @@ pandas
 scikit-learn
 joblib
 shap
-tensorflow
+torch
 
 # PDF export
 reportlab

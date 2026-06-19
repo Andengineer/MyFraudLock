@@ -140,10 +140,19 @@
                         <strong>Región:</strong> <span>{{ incidente.id_transaccion.customer_region }}</span>
                     </li>
                     <li class="list-group-item d-flex justify-content-between">
-                        <strong>Email Dominio:</strong> <span>{{ incidente.id_transaccion.email_domain|default:"—" }}</span>
-                    </li>
-                    <li class="list-group-item d-flex justify-content-between">
                         <strong>Categoría:</strong> <span>{{ incidente.id_transaccion.product_category|default:incidente.id_transaccion.category }}</span>
+                    </li>
+                    <li class="list-group-item">
+                        <strong class="d-block mb-2">Ratios del modelo (FraudDNN):</strong>
+                        <div class="d-flex flex-wrap gap-2 small">
+                            <span class="badge bg-light text-dark border">DAR: {{ incidente.id_transaccion.ratio_dar }}</span>
+                            <span class="badge bg-light text-dark border">CMR: {{ incidente.id_transaccion.ratio_cmr }}</span>
+                            <span class="badge bg-light text-dark border">AAR: {{ incidente.id_transaccion.ratio_aar }}</span>
+                            <span class="badge bg-light text-dark border">VRR: {{ incidente.id_transaccion.ratio_vrr }}</span>
+                            <span class="badge bg-light text-dark border">ASI: {{ incidente.id_transaccion.ratio_asi }}</span>
+                            <span class="badge bg-light text-dark border">CSI: {{ incidente.id_transaccion.ratio_csi }}</span>
+                            <span class="badge bg-light text-dark border">DPE: {{ incidente.id_transaccion.ratio_dpe }}</span>
+                        </div>
                     </li>
                     <li class="list-group-item d-flex justify-content-between">
                         <strong>Nro. Ítems:</strong> <span>{{ incidente.id_transaccion.num_items }}</span>

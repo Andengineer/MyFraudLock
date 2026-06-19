@@ -135,12 +135,13 @@
                             <div class="col-md-4">
                                 <label class="form-label" for="product_category">Categoría</label>
                                 <select class="form-select" id="product_category" name="product_category">
-                                    <option value="repuestos_moto">Repuestos Moto</option>
-                                    <option value="indumentaria_moto">Indumentaria Moto</option>
-                                    <option value="aceites_lubricantes">Aceites/Lubricantes</option>
-                                    <option value="cascos">Cascos</option>
-                                    <option value="accesorios">Accesorios</option>
-                                    <option value="electronica">Electrónica</option>
+                                    <option value="casco">Casco</option>
+                                    <option value="guantes">Guantes</option>
+                                    <option value="bota">Bota</option>
+                                    <option value="pantalon">Pantalón</option>
+                                    <option value="protector">Protector</option>
+                                    <option value="aceite">Aceite</option>
+                                    <option value="kit">Kit</option>
                                     <option value="otros">Otros</option>
                                 </select>
                             </div>
@@ -186,13 +187,41 @@
                                     <option value="si">Sí</option>
                                 </select>
                             </div>
-                            <!-- Info: Ratios calculados automáticamente -->
+                            <!-- Indicadores de comportamiento (ratios del modelo) -->
                             <div class="col-12"><hr>
-                                <div class="alert alert-info py-2 mb-0 small">
-                                    <i class="bi bi-cpu me-1"></i>
-                                    <strong>Ratios financieros</strong> (AAR, CMR, ASI, VRR, DAR, CSI, DPE) se calculan automáticamente
-                                    usando el historial de transacciones del BIN en la base de datos.
+                                <label class="form-label fw-semibold mb-1"><i class="bi bi-cpu me-1"></i> Indicadores de comportamiento (ratios del modelo)</label>
+                                <div class="alert alert-info py-2 small mb-2">
+                                    Son las variables más influyentes de FraudDNN. Ingrésalos para simular un escenario;
+                                    si los dejas vacíos, se calculan del historial del BIN en la base de datos.
                                 </div>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label" for="dar">DAR · denegaciones</label>
+                                <input class="form-control" id="dar" name="dar" type="number" step="0.01" placeholder="0.00">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label" for="cmr">CMR · monto/mediana</label>
+                                <input class="form-control" id="cmr" name="cmr" type="number" step="0.01" placeholder="1.00">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label" for="aar">AAR · monto/promedio</label>
+                                <input class="form-control" id="aar" name="aar" type="number" step="0.01" placeholder="1.00">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label" for="vrr">VRR · velocidad</label>
+                                <input class="form-control" id="vrr" name="vrr" type="number" step="0.01" placeholder="1.00">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label" for="asi">ASI · autenticación</label>
+                                <input class="form-control" id="asi" name="asi" type="number" step="0.01" placeholder="0.80">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label" for="csi">CSI · compartición</label>
+                                <input class="form-control" id="csi" name="csi" type="number" step="0.01" placeholder="1.00">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label" for="dpe">DPE · entropía deneg.</label>
+                                <input class="form-control" id="dpe" name="dpe" type="number" step="0.01" placeholder="0.00">
                             </div>
                             <div class="col-12 d-flex gap-2 mt-2">
                                 <button class="btn btn-brand btn-icon" type="submit">
@@ -313,8 +342,8 @@
                 <details class="mb-3">
                     <summary class="text-muted small">Ver ejemplo</summary>
                     <pre class="brand-subtle p-2 rounded mb-0 mt-2" style="font-size:.8rem;">importe,card_brand,card_type,issuer_bank,customer_region,product_category,eci_code,email_domain,bin
-120.50,visa,debito,bcp,lima,repuestos_moto,5,gmail.com,404700
-2850.00,visa,credito,bcp,lima,electronica,0,yopmail.com,400000</pre>
+120.50,visa,debito,bcp,lima,aceite,5,gmail.com,404700
+2850.00,visa,credito,bcp,lima,casco,0,yopmail.com,400000</pre>
                 </details>
 
                 <form method="post" enctype="multipart/form-data"
@@ -352,7 +381,7 @@
                                 <td>{{ r.card_brand|upper }} / {{ r.card_type }}</td>
                                 <td>{{ r.issuer_bank|upper }}</td>
                                 <td>{{ r.customer_region }}</td>
-                                <td>{{ r.category }}</td>
+                                <td>{{ r.product_category }}</td>
                                 <td>
                                     <span class="badge {% if r.score_riesgo >= 80 %}badge-risk-high{% elif r.score_riesgo >= 50 %}badge-risk-med{% else %}badge-risk-low{% endif %}">
                                         {{ r.score_riesgo|floatformat:3 }}%
@@ -390,11 +419,14 @@ function fillFraud(){
     f.card_brand.value='visa'; f.card_type.value='credito';
     f.issuer_bank.value='bcp'; f.payment_channel.value='pago web';
     f.eci_code.value='0';
-    f.customer_region.value='lima'; f.product_category.value='electronica';
+    f.customer_region.value='lima'; f.product_category.value='casco';
     f.email_domain.value='yopmail.com'; f.num_items.value=1;
     f.num_installments.value=0;
     f.bin.value='400000';
     f.wallet_yape.value='no'; f.wallet_plin.value='no';
+    // Ratios de comportamiento de alto riesgo (los drivers del modelo)
+    f.dar.value=0.85; f.cmr.value=4.5; f.aar.value=3.2; f.vrr.value=38;
+    f.asi.value=0.1; f.csi.value=3; f.dpe.value=0.85;
 }
 function fillLegit(){
     const f=document.getElementById('simForm');
@@ -402,16 +434,19 @@ function fillLegit(){
     f.card_brand.value='visa'; f.card_type.value='debito';
     f.issuer_bank.value='bcp'; f.payment_channel.value='pago web';
     f.eci_code.value='5';
-    f.customer_region.value='lima'; f.product_category.value='repuestos_moto';
+    f.customer_region.value='lima'; f.product_category.value='aceite';
     f.email_domain.value='gmail.com'; f.num_items.value=2;
     f.num_installments.value=0;
     f.bin.value='404700';
     f.wallet_yape.value='no'; f.wallet_plin.value='no';
+    // Ratios de comportamiento benignos (transacción normal)
+    f.dar.value=0; f.cmr.value=1; f.aar.value=1; f.vrr.value=1;
+    f.asi.value=0.9; f.csi.value=1; f.dpe.value=0;
 }
 function downloadSampleCSV(){
     const hdr='importe,card_brand,card_type,issuer_bank,customer_region,product_category,eci_code,email_domain,bin';
-    const r1='89.90,visa,debito,bcp,lima,repuestos_moto,5,gmail.com,404700';
-    const r2='2850.00,visa,credito,bcp,lima,electronica,0,yopmail.com,400000';
+    const r1='89.90,visa,debito,bcp,lima,aceite,5,gmail.com,404700';
+    const r2='2850.00,visa,credito,bcp,lima,casco,0,yopmail.com,400000';
     const blob=new Blob([hdr+'\n'+r1+'\n'+r2],{type:'text/csv'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='ejemplo_simulacion.csv'; a.click();
